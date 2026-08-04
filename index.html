@@ -117,7 +117,7 @@
         <div class="tab-menu">
             <button id="tab-meeting" class="tab-btn active-tab" onclick="switchTab('meeting')">Sinh hoạt chuyên môn</button>
             <button id="tab-member" class="tab-btn" onclick="switchTab('member')">Danh sách thành viên</button>
-            <button id="tab-task" class="tab-btn" onclick="switchTab('task')">Đánh giá & Nhiệm vụ</button>
+            <button id="tab-task" class="tab-btn" onclick="switchTab('task')">Nhiệm vụ và Đánh giá</button>
         </div>
 
         <!-- TAB 1: DANH SÁCH CUỘC HỌP -->
@@ -213,10 +213,11 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th style="width: 30%;">Nội dung nhiệm vụ</th>
-                            <th style="width: 35%;">Kết quả thực hiện (Giáo viên nhập)</th>
-                            <th style="width: 20%;">Tổ trưởng đánh giá</th>
-                            <th style="width: 15%;">Lưu</th>
+                            <th style="width: 25%;">Nội dung nhiệm vụ</th>
+                            <th style="width: 30%;">Kết quả thực hiện (Giáo viên nhập)</th>
+                            <th style="width: 15%;">Tổ trưởng đánh giá</th>
+                            <th style="width: 20%;">Ghi chú (Tổ trưởng)</th>
+                            <th style="width: 10%;">Lưu</th>
                         </tr>
                     </thead>
                     <tbody id="td-task-list"></tbody>
@@ -573,7 +574,7 @@
             const tbody = document.getElementById('td-task-list'); tbody.innerHTML = '';
             let counts = { 'Chưa hoàn thành': 0, 'Hoàn thành': 0, 'Hoàn thành tốt': 0, 'Hoàn thành xuất sắc': 0, 'Chưa đánh giá': 0 };
             
-            if (!mb.tasks || mb.tasks.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #666;">Chưa có nhiệm vụ.</td></tr>'; } 
+            if (!mb.tasks || mb.tasks.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #666;">Chưa có nhiệm vụ.</td></tr>'; } 
             else {
                 mb.tasks.forEach((t, tIndex) => {
                     counts[t.status || 'Chưa đánh giá']++;
@@ -588,6 +589,8 @@
                         </select>
                     ` : `<span class="badge ${getBadgeClass(t.status)}">${t.status || 'Chưa đánh giá'}</span>`;
                     
+                    let noteHtml = currentUser.role === 'admin' ? `<textarea id="t-note-${tIndex}" rows="2" placeholder="Ghi chú của Tổ trưởng...">${t.note || ''}</textarea>` : `<div class="format-text" style="font-size: 13px;">${formatParagraphs(t.note || '')}</div>`;
+
                     let actionHtml = isOwnerOrAdmin ? `<button class="btn-success" style="padding: 5px 10px; margin-bottom: 5px; width: 100%;" onclick="updateTask(${tIndex})">Lưu</button>` : '';
                     if (currentUser.role === 'admin') actionHtml += `<button class="btn-danger" style="padding: 5px 10px; width: 100%;" onclick="deleteTask(${tIndex})">Xóa</button>`;
 
@@ -596,6 +599,7 @@
                         <td><b>${t.name}</b><br><small style="color:#666">Giao: ${t.date}</small></td>
                         <td><textarea id="t-result-${tIndex}" rows="2" ${isOwnerOrAdmin ? '' : 'disabled'}>${t.result || ''}</textarea></td>
                         <td>${statusHtml}</td>
+                        <td>${noteHtml}</td>
                         <td style="text-align: center; vertical-align: middle;">${actionHtml}</td>
                     `;
                     tbody.appendChild(tr);
@@ -610,7 +614,7 @@
             const now = new Date();
             
             if(!membersData[viewingTaskTeacherIndex].tasks) membersData[viewingTaskTeacherIndex].tasks = [];
-            membersData[viewingTaskTeacherIndex].tasks.push({ name: taskName, date: now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear(), result: "", status: "Chưa đánh giá" });
+            membersData[viewingTaskTeacherIndex].tasks.push({ name: taskName, date: now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear(), result: "", status: "Chưa đánh giá", note: "" });
             
             db.ref('members').set(membersData).then(() => {
                 document.getElementById('new-task-name').value = '';
@@ -621,6 +625,7 @@
             const mb = membersData[viewingTaskTeacherIndex];
             if (document.getElementById(`t-result-${taskIndex}`)) mb.tasks[taskIndex].result = document.getElementById(`t-result-${taskIndex}`).value.trim();
             if (document.getElementById(`t-status-${taskIndex}`)) mb.tasks[taskIndex].status = document.getElementById(`t-status-${taskIndex}`).value;
+            if (document.getElementById(`t-note-${taskIndex}`)) mb.tasks[taskIndex].note = document.getElementById(`t-note-${taskIndex}`).value.trim();
             
             db.ref('members').set(membersData).then(() => {
                 alert("Đã cập nhật tiến độ lên máy chủ!");
@@ -696,10 +701,8 @@
 
                 let actionButtons = '';
                 if (isLocked && currentUser.role !== 'admin') {
-                    // Nếu đã khóa và KHÔNG PHẢI admin -> nút màu xám, cấm bấm
                     actionButtons = `<button class="btn-disabled" onclick="alert('Biên bản này đã hết hạn nhận xét!')">Đã khóa</button>`;
                 } else {
-                    // Nếu còn hạn, hoặc đã khóa nhưng LÀ admin -> vẫn cho vào
                     actionButtons = `<button onclick="viewMeeting(${m.id})">Tham gia / Xem</button>`;
                 }
 
@@ -763,7 +766,6 @@
             renderComments(); showScreen('detail-screen');
         }
 
-        // Cập nhật lại hạn chót (Mở khóa)
         function updateDeadline() {
             const newDeadline = document.getElementById('c-deadline-input').value;
             const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
@@ -787,14 +789,15 @@
             const text = document.getElementById('c-text').value.trim();
             if (!text) return alert('Vui lòng nhập ý kiến!');
             const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
+            const now = new Date();
+            const timeString = now.getHours() + ':' + (now.getMinutes() < 10 ? '0'+now.getMinutes() : now.getMinutes()) + ' ngày ' + now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear();
             
-            // Xử lý an toàn mảng cho firebase
             if(!meetings[mIndex].comments) meetings[mIndex].comments = [];
             if(!Array.isArray(meetings[mIndex].comments)) {
                 meetings[mIndex].comments = Object.values(meetings[mIndex].comments);
             }
 
-            meetings[mIndex].comments.push({ user: currentUser.name, text: text }); // Bỏ thuộc tính time
+            meetings[mIndex].comments.push({ user: currentUser.name, text: text }); 
             
             db.ref('meetings').set(meetings).then(() => {
                 document.getElementById('c-text').value = '';
@@ -828,7 +831,6 @@
                     const div = document.createElement('div');
                     div.className = 'comment-box';
                     const combinedText = g.texts.join('\n\n'); 
-                    // Bỏ hoàn toàn phần hiển thị thời gian, chỉ để lại tên
                     div.innerHTML = `
                         <div class="comment-meta">
                             <span style="font-weight: bold;">${index + 1}. </span>
