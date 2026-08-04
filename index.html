@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sổ Ghi Chép Tổ Toán - Tin</title>
+
+    <!-- KẾT NỐI THƯ VIỆN FIREBASE QUA CDN (Phiên bản Compat cho HTML thuần) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
     <style>
         /* CSS Định dạng giao diện chung */
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f6f9; margin: 0; padding: 0; }
@@ -67,7 +72,7 @@
         /* CSS ĐẶC BIỆT KHI XUẤT RA MÁY IN / PDF */
         @page {
             size: A4;
-            margin: 20mm; /* Đặt lề 2cm cho toàn bộ khung giấy */
+            margin: 20mm; /* Lề: 2cm cho toàn bộ khung giấy */
         }
         @media print {
             body { background: white; }
@@ -102,6 +107,7 @@
             <input type="password" id="login-password" placeholder="Nhập mật khẩu...">
             <button onclick="login()" style="width: 100%; padding: 10px; font-size: 16px;">Đăng nhập</button>
             <p style="text-align: center; font-size: 13px; color: #666; margin-top: 15px;">
+                <i>*Tài khoản quản trị mặc định: <b>admin</b> / Mật khẩu: <b>admin</b></i>
             </p>
         </div>
     </div>
@@ -318,24 +324,81 @@
     </div>
 
     <script>
-        // --- DỮ LIỆU TOÀN CỤC ---
+        // --- 1. CẤU HÌNH FIREBASE KẾT NỐI ĐÁM MÂY ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCv8qI2-4CIm9-YJNBlIawKXpF0VAfjBtc",
+            authDomain: "toantin-d32b2.firebaseapp.com",
+            databaseURL: "https://toantin-d32b2-default-rtdb.firebaseio.com",
+            projectId: "toantin-d32b2",
+            storageBucket: "toantin-d32b2.firebasestorage.app",
+            messagingSenderId: "416212565318",
+            appId: "1:416212565318:web:9480d4d2951c71a0b8f947",
+            measurementId: "G-TZB62HZQ7X"
+        };
+
+        // Khởi tạo kết nối Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // --- 2. DỮ LIỆU TOÀN CỤC ---
         let currentUser = { id: '', name: '', role: '', username: '' };
         let currentMeetingId = null;
         let editingMemberIndex = -1; 
         let viewingTaskTeacherIndex = -1; 
         
-        let meetings = JSON.parse(localStorage.getItem('toToanTinMeetings')) || [];
-        
-        let defaultMembers = [
+        let meetings = [];
+        let membersData = [];
+
+        const defaultMembers = [
             { name: "Ban Quản Trị", role: "Tổ trưởng", subject: "Quản trị", task: "Toàn quyền", username: "admin", password: "admin", tasks: [], yearlyEval: "Chưa đánh giá" },
             { name: "Cô Nguyễn Thị B", role: "Tổ phó", subject: "Toán 10", task: "Thư ký cuộc họp", username: "gv_cob", password: "123", tasks: [], yearlyEval: "Chưa đánh giá" }
         ];
-        
-        let membersData = JSON.parse(localStorage.getItem('toToanTinMembers')) || defaultMembers;
-        membersData.forEach(m => { if (!m.tasks) m.tasks = []; if (!m.yearlyEval) m.yearlyEval = "Chưa đánh giá"; });
 
-        const hasAdmin = membersData.some(m => m.username === 'admin');
-        if (!hasAdmin) { membersData = defaultMembers; localStorage.setItem('toToanTinMembers', JSON.stringify(membersData)); }
+        // --- 3. LẮNG NGHE DỮ LIỆU THEO THỜI GIAN THỰC (REALTIME LISTENERS) ---
+        // Đồng bộ danh sách cuộc họp từ Firebase
+        db.ref('meetings').on('value', snapshot => {
+            const data = snapshot.val();
+            meetings = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
+            
+            if (document.getElementById('main-app').classList.contains('active')) {
+                renderMeetings();
+                // Nếu đang mở trang chi tiết thì tự động tải lại ý kiến mới
+                if (currentMeetingId && document.getElementById('detail-screen').classList.contains('active')) {
+                    const updatedM = meetings.find(x => x.id === currentMeetingId);
+                    if (updatedM) {
+                        renderComments();
+                        document.getElementById('d-conclusion').innerHTML = formatParagraphs(updatedM.conclusion || '......................................................................................................');
+                    }
+                }
+            }
+        });
+
+        // Đồng bộ danh sách thành viên & nhiệm vụ từ Firebase
+        db.ref('members').on('value', snapshot => {
+            const data = snapshot.val();
+            if (!data) {
+                // Khởi tạo mẫu nếu data trắng
+                db.ref('members').set(defaultMembers);
+                membersData = defaultMembers;
+            } else {
+                membersData = Array.isArray(data) ? data : Object.values(data);
+            }
+            
+            // Xử lý chống lỗi undefined cho mảng tasks và yearlyEval
+            membersData.forEach(m => { 
+                if (!m.tasks) m.tasks = []; 
+                else if (!Array.isArray(m.tasks)) m.tasks = Object.values(m.tasks);
+                if (!m.yearlyEval) m.yearlyEval = "Chưa đánh giá"; 
+            });
+            
+            if (document.getElementById('main-app').classList.contains('active')) {
+                renderMembers();
+                renderTaskOverview();
+                if (viewingTaskTeacherIndex >= 0 && document.getElementById('task-detail').style.display === 'block') {
+                    renderTeacherTasks();
+                }
+            }
+        });
 
         // --- HÀM HELPER ĐỊNH DẠNG ĐOẠN VĂN (THỤT LỀ) ---
         function formatParagraphs(text) {
@@ -444,8 +507,12 @@
                 membersData.push({ name, role, subject, task, username, password, tasks: [], yearlyEval: "Chưa đánh giá" });
             }
 
-            localStorage.setItem('toToanTinMembers', JSON.stringify(membersData));
-            cancelEdit(); renderMembers(); renderTaskOverview();
+            // Lưu lên Firebase
+            db.ref('members').set(membersData).then(() => {
+                cancelEdit();
+            }).catch(error => {
+                alert("Lỗi khi lưu lên máy chủ: " + error.message);
+            });
         }
 
         function editMember(index) {
@@ -545,27 +612,37 @@
             const taskName = document.getElementById('new-task-name').value.trim();
             if (!taskName) return alert("Nhập tên nhiệm vụ!");
             const now = new Date();
+            
+            if(!membersData[viewingTaskTeacherIndex].tasks) membersData[viewingTaskTeacherIndex].tasks = [];
             membersData[viewingTaskTeacherIndex].tasks.push({ name: taskName, date: now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear(), result: "", status: "Chưa đánh giá" });
-            localStorage.setItem('toToanTinMembers', JSON.stringify(membersData));
-            document.getElementById('new-task-name').value = ''; renderTeacherTasks();
+            
+            db.ref('members').set(membersData).then(() => {
+                document.getElementById('new-task-name').value = '';
+            });
         }
 
         function updateTask(taskIndex) {
             const mb = membersData[viewingTaskTeacherIndex];
             if (document.getElementById(`t-result-${taskIndex}`)) mb.tasks[taskIndex].result = document.getElementById(`t-result-${taskIndex}`).value.trim();
             if (document.getElementById(`t-status-${taskIndex}`)) mb.tasks[taskIndex].status = document.getElementById(`t-status-${taskIndex}`).value;
-            localStorage.setItem('toToanTinMembers', JSON.stringify(membersData));
-            alert("Đã cập nhật!"); renderTeacherTasks();
+            
+            db.ref('members').set(membersData).then(() => {
+                alert("Đã cập nhật tiến độ lên máy chủ!");
+            });
         }
 
         function deleteTask(taskIndex) {
-            if(confirm("Xóa nhiệm vụ này?")) { membersData[viewingTaskTeacherIndex].tasks.splice(taskIndex, 1); localStorage.setItem('toToanTinMembers', JSON.stringify(membersData)); renderTeacherTasks(); }
+            if(confirm("Xóa nhiệm vụ này?")) { 
+                membersData[viewingTaskTeacherIndex].tasks.splice(taskIndex, 1); 
+                db.ref('members').set(membersData); 
+            }
         }
 
         function saveYearlyEval() {
             membersData[viewingTaskTeacherIndex].yearlyEval = document.getElementById('td-yearly-eval').value;
-            localStorage.setItem('toToanTinMembers', JSON.stringify(membersData));
-            alert("Đã chốt xếp loại năm!");
+            db.ref('members').set(membersData).then(() => {
+                alert("Đã chốt xếp loại năm học!");
+            });
         }
 
         // --- CÁC HÀM CUỘC HỌP ---
@@ -575,14 +652,20 @@
             const content = document.getElementById('m-content').value.trim();
             if (!title || !content) return alert('Nhập đủ Tiêu đề và Nội dung!');
 
-            meetings.push({ id: Date.now(), title: title, time: time.replace('T', ' '), content: content, conclusion: "", host: currentUser.name, comments: [] });
-            localStorage.setItem('toToanTinMeetings', JSON.stringify(meetings));
-            document.getElementById('m-title').value = ''; document.getElementById('m-time').value = ''; document.getElementById('m-content').value = '';
-            showScreen('main-app');
+            const newM = { id: Date.now(), title: title, time: time.replace('T', ' '), content: content, conclusion: "", host: currentUser.name, comments: [] };
+            meetings.push(newM);
+            
+            db.ref('meetings').set(meetings).then(() => {
+                document.getElementById('m-title').value = ''; document.getElementById('m-time').value = ''; document.getElementById('m-content').value = '';
+                showScreen('main-app');
+            });
         }
 
         function deleteMeeting(id) {
-            if (confirm('XÓA biên bản này?')) { meetings = meetings.filter(x => x.id !== id); localStorage.setItem('toToanTinMeetings', JSON.stringify(meetings)); renderMeetings(); }
+            if (confirm('XÓA biên bản này?')) { 
+                meetings = meetings.filter(x => x.id !== id); 
+                db.ref('meetings').set(meetings); 
+            }
         }
 
         function renderMeetings() {
@@ -590,9 +673,14 @@
             if (meetings.length === 0) return listDiv.innerHTML = '<p>Chưa có cuộc họp nào.</p>';
             [...meetings].reverse().forEach(m => {
                 const div = document.createElement('div'); div.className = 'meeting-item';
+                
+                // Đếm comments an toàn từ object do firebase convert
+                let commentsArr = m.comments ? (Array.isArray(m.comments) ? m.comments : Object.values(m.comments)) : [];
+                let commentCount = commentsArr.length;
+
                 let actionButtons = `<button onclick="viewMeeting(${m.id})">Tham gia / Xem</button>`;
                 if (currentUser.role === 'admin') actionButtons += `<button class="btn-danger" style="margin-left: 5px;" onclick="deleteMeeting(${m.id})">Xóa</button>`;
-                div.innerHTML = `<div style="font-family: 'Segoe UI', sans-serif;"><h4 style="margin: 0 0 5px 0; color: #0056b3;">${m.title}</h4><small>Thời gian: ${m.time} | Người tạo: ${m.host} | Số ý kiến: ${m.comments.length}</small></div><div>${actionButtons}</div>`;
+                div.innerHTML = `<div style="font-family: 'Segoe UI', sans-serif;"><h4 style="margin: 0 0 5px 0; color: #0056b3;">${m.title}</h4><small>Thời gian: ${m.time} | Người tạo: ${m.host} | Số ý kiến: ${commentCount}</small></div><div>${actionButtons}</div>`;
                 listDiv.appendChild(div);
             });
         }
@@ -633,9 +721,10 @@
             const text = document.getElementById('c-conclusion-text').value.trim();
             const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
             meetings[mIndex].conclusion = text;
-            localStorage.setItem('toToanTinMeetings', JSON.stringify(meetings));
-            document.getElementById('d-conclusion').innerHTML = formatParagraphs(text || '......................................................................................................');
-            alert("Đã lưu Kết luận cuộc họp thành công!");
+            
+            db.ref('meetings').set(meetings).then(() => {
+                alert("Đã lưu Kết luận cuộc họp thành công!");
+            });
         }
 
         function addComment() {
@@ -644,9 +733,18 @@
             const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
             const now = new Date();
             const timeString = now.getHours() + ':' + (now.getMinutes() < 10 ? '0'+now.getMinutes() : now.getMinutes()) + ' ngày ' + now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear();
+            
+            // Xử lý an toàn mảng cho firebase
+            if(!meetings[mIndex].comments) meetings[mIndex].comments = [];
+            if(!Array.isArray(meetings[mIndex].comments)) {
+                meetings[mIndex].comments = Object.values(meetings[mIndex].comments);
+            }
+
             meetings[mIndex].comments.push({ user: currentUser.name, time: timeString, text: text });
-            localStorage.setItem('toToanTinMeetings', JSON.stringify(meetings));
-            document.getElementById('c-text').value = ''; renderComments();
+            
+            db.ref('meetings').set(meetings).then(() => {
+                document.getElementById('c-text').value = '';
+            });
         }
 
         function renderComments() {
@@ -654,12 +752,14 @@
             const cDiv = document.getElementById('d-comments');
             cDiv.innerHTML = '';
             
-            if (m.comments.length === 0) {
+            let rawComments = m.comments ? (Array.isArray(m.comments) ? m.comments : Object.values(m.comments)) : [];
+
+            if (rawComments.length === 0) {
                 cDiv.innerHTML = '<p><i>Chưa có ý kiến thảo luận nào.</i></p>';
             } else {
                 // Thuật toán gộp nhóm ý kiến theo người dùng
                 const grouped = [];
-                m.comments.forEach(c => {
+                rawComments.forEach(c => {
                     const existing = grouped.find(g => g.user === c.user);
                     if (existing) {
                         existing.texts.push(c.text);
