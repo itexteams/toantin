@@ -30,6 +30,7 @@
         .btn-warning { background-color: #ffc107; color: #000; }
         .btn-warning:hover { background-color: #e0a800; }
         .btn-info { background-color: #17a2b8; color: white; }
+        .btn-disabled { background-color: #6c757d !important; cursor: not-allowed !important; }
         
         /* Form nhập liệu */
         input, textarea, select { width: 100%; padding: 10px; margin: 8px 0 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
@@ -240,6 +241,8 @@
         <input type="text" id="m-title" placeholder="Nhập tiêu đề...">
         <label>Thời gian bắt đầu:</label>
         <input type="datetime-local" id="m-time">
+        <label>Hạn chót nhận xét (Bỏ trống nếu không giới hạn):</label>
+        <input type="datetime-local" id="m-deadline">
         <label>Nội dung triển khai:</label>
         <textarea id="m-content" rows="6" placeholder="Nhập nội dung... (Có thể ấn Enter xuống dòng, hệ thống tự động căn lề chuẩn 1.27cm)"></textarea>
         <button class="btn-success" onclick="saveMeeting()">Đăng thông báo</button>
@@ -253,7 +256,6 @@
         
         <div id="print-area">
             
-            <!-- Phần Tiêu đề: Lề chuẩn, không bị cắt chữ -->
             <div class="print-header screen" id="print-header-info" style="display: none;">
                 <table style="width: 100%; padding-left: 2mm;">
                     <tr>
@@ -272,7 +274,6 @@
                 </table>
             </div>
 
-            <!-- Phần Nội dung Biên bản: Tự động lùi vào thêm 1cm (Tổng lề trái 3cm chuẩn Nghị định 30) -->
             <div class="document-body">
                 <h2>BIÊN BẢN SINH HOẠT CHUYÊN MÔN</h2>
                 <h3 id="d-title"></h3>
@@ -294,7 +295,6 @@
                     <p><b>* Nội dung được 100% các thành viên nhất trí.</b></p>
                 </div>
                 
-                <!-- CHỮ KÝ Ở CUỐI -->
                 <div class="print-header screen" style="width: 100%; margin-top: 40px; display: none; overflow: hidden;" id="print-footer-info">
                     <div style="float: left; width: 50%; text-align: center;">
                         <p style="font-weight: bold; margin: 0;">THƯ KÝ</p>
@@ -318,7 +318,15 @@
             <div class="admin-only" style="margin-top: 20px; background: #e9ecef; padding: 15px; border-radius: 5px;">
                 <h4 style="margin-top: 0; font-family: 'Segoe UI', sans-serif; color: #0056b3;">Tổng hợp & Chốt Kết luận (Chỉ Chủ tọa thấy):</h4>
                 <textarea id="c-conclusion-text" rows="4" placeholder="Nhập nội dung kết luận..." style="font-family: inherit;"></textarea>
-                <button class="btn-warning" onclick="saveConclusion()">Lưu Kết luận</button>
+                <button class="btn-warning" onclick="saveConclusion()" style="margin-bottom: 15px;">Lưu Kết luận</button>
+                
+                <hr style="border-top: 1px dashed #ccc;">
+                <h4 style="margin-top: 15px; font-family: 'Segoe UI', sans-serif; color: #0056b3;">Gia hạn / Mở khóa Biên bản:</h4>
+                <label style="font-size: 14px;">Hạn chót mới (Xóa trắng để mở khóa vô thời hạn):</label>
+                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                    <input type="datetime-local" id="c-deadline-input" style="margin: 0;">
+                    <button class="btn-primary" onclick="updateDeadline()" style="white-space: nowrap;">Cập nhật hạn</button>
+                </div>
             </div>
         </div>
     </div>
@@ -336,7 +344,6 @@
             measurementId: "G-TZB62HZQ7X"
         };
 
-        // Khởi tạo kết nối Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
@@ -350,41 +357,37 @@
         let membersData = [];
 
         const defaultMembers = [
-            { name: "Ban Quản Trị", role: "Tổ trưởng", subject: "Quản trị", task: "Toàn quyền", username: "admin", password: "admin", tasks: [], yearlyEval: "Chưa đánh giá" },
+            { name: "Tên Tổ Trưởng (Sửa lại)", role: "Tổ trưởng", subject: "Toán", task: "Chủ tọa", username: "admin", password: "admin", tasks: [], yearlyEval: "Chưa đánh giá" },
             { name: "Cô Nguyễn Thị B", role: "Tổ phó", subject: "Toán 10", task: "Thư ký cuộc họp", username: "gv_cob", password: "123", tasks: [], yearlyEval: "Chưa đánh giá" }
         ];
 
         // --- 3. LẮNG NGHE DỮ LIỆU THEO THỜI GIAN THỰC (REALTIME LISTENERS) ---
-        // Đồng bộ danh sách cuộc họp từ Firebase
         db.ref('meetings').on('value', snapshot => {
             const data = snapshot.val();
             meetings = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
             
             if (document.getElementById('main-app').classList.contains('active')) {
                 renderMeetings();
-                // Nếu đang mở trang chi tiết thì tự động tải lại ý kiến mới
                 if (currentMeetingId && document.getElementById('detail-screen').classList.contains('active')) {
                     const updatedM = meetings.find(x => x.id === currentMeetingId);
                     if (updatedM) {
                         renderComments();
                         document.getElementById('d-conclusion').innerHTML = formatParagraphs(updatedM.conclusion || '......................................................................................................');
+                        document.getElementById('c-deadline-input').value = updatedM.deadline || '';
                     }
                 }
             }
         });
 
-        // Đồng bộ danh sách thành viên & nhiệm vụ từ Firebase
         db.ref('members').on('value', snapshot => {
             const data = snapshot.val();
             if (!data) {
-                // Khởi tạo mẫu nếu data trắng
                 db.ref('members').set(defaultMembers);
                 membersData = defaultMembers;
             } else {
                 membersData = Array.isArray(data) ? data : Object.values(data);
             }
             
-            // Xử lý chống lỗi undefined cho mảng tasks và yearlyEval
             membersData.forEach(m => { 
                 if (!m.tasks) m.tasks = []; 
                 else if (!Array.isArray(m.tasks)) m.tasks = Object.values(m.tasks);
@@ -400,7 +403,6 @@
             }
         });
 
-        // --- HÀM HELPER ĐỊNH DẠNG ĐOẠN VĂN (THỤT LỀ) ---
         function formatParagraphs(text) {
             if (!text) return '';
             let paragraphs = text.split(/\n+/).filter(p => p.trim() !== '');
@@ -415,7 +417,6 @@
             return 'bg-secondary';
         }
 
-        // --- CÁC HÀM ĐIỀU HƯỚNG ---
         function showScreen(screenId) {
             document.querySelectorAll('body > .screen').forEach(el => el.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
@@ -434,7 +435,6 @@
             if (tabName === 'task') closeTaskDetail(); 
         }
 
-        // --- HỆ THỐNG ĐĂNG NHẬP ---
         function login() {
             const un = document.getElementById('login-username').value.trim();
             const pw = document.getElementById('login-password').value.trim();
@@ -467,7 +467,6 @@
 
         function logout() { currentUser = { id: '', name: '', role: '', username: '' }; cancelEdit(); showScreen('login-screen'); }
 
-        // --- QUẢN LÝ THÀNH VIÊN ---
         function renderMembers() {
             const tbody = document.getElementById('member-list');
             tbody.innerHTML = '';
@@ -507,7 +506,6 @@
                 membersData.push({ name, role, subject, task, username, password, tasks: [], yearlyEval: "Chưa đánh giá" });
             }
 
-            // Lưu lên Firebase
             db.ref('members').set(membersData).then(() => {
                 cancelEdit();
             }).catch(error => {
@@ -538,7 +536,6 @@
             document.getElementById('btn-cancel-edit').style.display = "none";
         }
 
-        // --- MODULE NHIỆM VỤ ---
         function renderTaskOverview() {
             const tbody = document.getElementById('task-overview-list'); tbody.innerHTML = '';
             membersData.forEach((mb, index) => {
@@ -649,14 +646,27 @@
         function saveMeeting() {
             const title = document.getElementById('m-title').value.trim();
             const time = document.getElementById('m-time').value;
+            const deadline = document.getElementById('m-deadline').value;
             const content = document.getElementById('m-content').value.trim();
             if (!title || !content) return alert('Nhập đủ Tiêu đề và Nội dung!');
 
-            const newM = { id: Date.now(), title: title, time: time.replace('T', ' '), content: content, conclusion: "", host: currentUser.name, comments: [] };
+            const newM = { 
+                id: Date.now(), 
+                title: title, 
+                time: time.replace('T', ' '), 
+                deadline: deadline,
+                content: content, 
+                conclusion: "", 
+                host: currentUser.name, 
+                comments: [] 
+            };
             meetings.push(newM);
             
             db.ref('meetings').set(meetings).then(() => {
-                document.getElementById('m-title').value = ''; document.getElementById('m-time').value = ''; document.getElementById('m-content').value = '';
+                document.getElementById('m-title').value = ''; 
+                document.getElementById('m-time').value = ''; 
+                document.getElementById('m-deadline').value = '';
+                document.getElementById('m-content').value = '';
                 showScreen('main-app');
             });
         }
@@ -674,13 +684,35 @@
             [...meetings].reverse().forEach(m => {
                 const div = document.createElement('div'); div.className = 'meeting-item';
                 
-                // Đếm comments an toàn từ object do firebase convert
                 let commentsArr = m.comments ? (Array.isArray(m.comments) ? m.comments : Object.values(m.comments)) : [];
                 let commentCount = commentsArr.length;
 
-                let actionButtons = `<button onclick="viewMeeting(${m.id})">Tham gia / Xem</button>`;
+                // Xử lý kiểm tra Hạn chót
+                let isLocked = false;
+                if (m.deadline) {
+                    let deadlineTime = new Date(m.deadline).getTime();
+                    let nowTime = new Date().getTime();
+                    if (nowTime > deadlineTime) isLocked = true;
+                }
+
+                let actionButtons = '';
+                if (isLocked && currentUser.role !== 'admin') {
+                    // Nếu đã khóa và KHÔNG PHẢI admin -> nút màu xám, cấm bấm
+                    actionButtons = `<button class="btn-disabled" onclick="alert('Biên bản này đã hết hạn nhận xét!')">Đã khóa</button>`;
+                } else {
+                    // Nếu còn hạn, hoặc đã khóa nhưng LÀ admin -> vẫn cho vào
+                    actionButtons = `<button onclick="viewMeeting(${m.id})">Tham gia / Xem</button>`;
+                }
+
                 if (currentUser.role === 'admin') actionButtons += `<button class="btn-danger" style="margin-left: 5px;" onclick="deleteMeeting(${m.id})">Xóa</button>`;
-                div.innerHTML = `<div style="font-family: 'Segoe UI', sans-serif;"><h4 style="margin: 0 0 5px 0; color: #0056b3;">${m.title}</h4><small>Thời gian: ${m.time} | Người tạo: ${m.host} | Số ý kiến: ${commentCount}</small></div><div>${actionButtons}</div>`;
+                
+                div.innerHTML = `
+                    <div style="font-family: 'Segoe UI', sans-serif;">
+                        <h4 style="margin: 0 0 5px 0; color: #0056b3;">${m.title} ${isLocked ? '<span style="color: red; font-size:12px;">(Đã khóa)</span>' : ''}</h4>
+                        <small>Người tạo: ${m.host} | Số ý kiến: ${commentCount}</small>
+                    </div>
+                    <div>${actionButtons}</div>
+                `;
                 listDiv.appendChild(div);
             });
         }
@@ -688,9 +720,23 @@
         function viewMeeting(id) {
             currentMeetingId = id; const m = meetings.find(x => x.id === id);
             document.getElementById('d-title').innerText = m.title;
-            document.getElementById('d-time').innerText = m.time || 'Chưa xác định';
-            document.getElementById('d-host').innerText = m.host || 'Ban quản trị';
             
+            // Format Thời gian chỉ lấy Ngày Tháng Năm
+            let displayTime = m.time || 'Chưa xác định';
+            if (m.time) {
+                try {
+                    const dateObj = new Date(m.time.replace(' ', 'T'));
+                    if (!isNaN(dateObj.getTime())) {
+                        displayTime = `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}`;
+                    }
+                } catch (e) {}
+            }
+            document.getElementById('d-time').innerText = displayTime;
+            
+            const toTruong = membersData.find(mb => mb.role && mb.role.toLowerCase().includes('tổ trưởng'));
+            const hostName = toTruong ? toTruong.name : (m.host || '.........................');
+            
+            document.getElementById('d-host').innerText = hostName;
             document.getElementById('d-content').innerHTML = formatParagraphs(m.content);
             
             if (m.time) {
@@ -702,7 +748,7 @@
                 } catch (e) {}
             }
 
-            document.getElementById('d-host-name').innerText = m.host || 'Ban quản trị';
+            document.getElementById('d-host-name').innerText = hostName;
             const secretary = membersData.find(mb => {
                 const r = (mb.role || '').toLowerCase(); const t = (mb.task || '').toLowerCase();
                 return r.includes('thư ký') || r.includes('thư kí') || t.includes('thư ký') || t.includes('thư kí');
@@ -711,10 +757,21 @@
             
             document.getElementById('d-conclusion').innerHTML = formatParagraphs(m.conclusion || '......................................................................................................');
             document.getElementById('c-conclusion-text').value = m.conclusion || '';
+            document.getElementById('c-deadline-input').value = m.deadline || '';
 
             document.getElementById('print-header-info').style.display = 'block';
             document.getElementById('print-footer-info').style.display = 'block';
             renderComments(); showScreen('detail-screen');
+        }
+
+        // Cập nhật lại hạn chót (Mở khóa)
+        function updateDeadline() {
+            const newDeadline = document.getElementById('c-deadline-input').value;
+            const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
+            meetings[mIndex].deadline = newDeadline;
+            db.ref('meetings').set(meetings).then(() => {
+                alert("Đã cập nhật hạn chót nhận xét!");
+            });
         }
 
         function saveConclusion() {
@@ -731,8 +788,6 @@
             const text = document.getElementById('c-text').value.trim();
             if (!text) return alert('Vui lòng nhập ý kiến!');
             const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
-            const now = new Date();
-            const timeString = now.getHours() + ':' + (now.getMinutes() < 10 ? '0'+now.getMinutes() : now.getMinutes()) + ' ngày ' + now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear();
             
             // Xử lý an toàn mảng cho firebase
             if(!meetings[mIndex].comments) meetings[mIndex].comments = [];
@@ -740,7 +795,7 @@
                 meetings[mIndex].comments = Object.values(meetings[mIndex].comments);
             }
 
-            meetings[mIndex].comments.push({ user: currentUser.name, time: timeString, text: text });
+            meetings[mIndex].comments.push({ user: currentUser.name, text: text }); // Bỏ thuộc tính time
             
             db.ref('meetings').set(meetings).then(() => {
                 document.getElementById('c-text').value = '';
@@ -757,7 +812,6 @@
             if (rawComments.length === 0) {
                 cDiv.innerHTML = '<p><i>Chưa có ý kiến thảo luận nào.</i></p>';
             } else {
-                // Thuật toán gộp nhóm ý kiến theo người dùng
                 const grouped = [];
                 rawComments.forEach(c => {
                     const existing = grouped.find(g => g.user === c.user);
@@ -766,22 +820,20 @@
                     } else {
                         grouped.push({
                             user: c.user,
-                            time: c.time, // Lấy thời gian của lần bình luận đầu tiên
                             texts: [c.text]
                         });
                     }
                 });
 
-                // In ra các ý kiến đã được gộp
                 grouped.forEach((g, index) => {
                     const div = document.createElement('div');
                     div.className = 'comment-box';
-                    const combinedText = g.texts.join('\n\n'); // Nối các bình luận lại thành đoạn văn
+                    const combinedText = g.texts.join('\n\n'); 
+                    // Bỏ hoàn toàn phần hiển thị thời gian, chỉ để lại tên
                     div.innerHTML = `
                         <div class="comment-meta">
                             <span style="font-weight: bold;">${index + 1}. </span>
-                            <span style="font-style: italic;">${g.user}</span> 
-                            <span style="font-weight: normal; font-size: 11pt;">(${g.time}):</span>
+                            <span style="font-style: italic;">${g.user}:</span> 
                         </div>
                         <div class="format-text">${formatParagraphs(combinedText)}</div>
                     `;
