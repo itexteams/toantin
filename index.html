@@ -64,6 +64,7 @@
         
         /* Căn đều 2 bên và thụt đầu dòng đoạn văn */
         .format-text p { text-align: justify; text-indent: 1.27cm; margin-top: 5px; margin-bottom: 5px; }
+        .no-indent-text p { text-indent: 0; margin-top: 5px; margin-bottom: 5px; text-align: justify; }
         
         /* Đề mục con (1, 2, 3...) thụt lề toàn khối 1.27cm */
         .comment-box { margin-left: 1.27cm; margin-bottom: 10px; }
@@ -123,8 +124,8 @@
 
         <!-- TAB 0: KẾ HOẠCH CHI TIẾT -->
         <div id="tab-plan-content">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0;">Kế hoạch chi tiết năm học</h3>
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 20px;">KẾ HOẠCH CHI TIẾT NĂM HỌC</h3>
             </div>
             <hr>
             <div style="overflow-x: auto;">
@@ -132,9 +133,9 @@
                     <thead>
                         <tr>
                             <th style="width: 5%; text-align: center;">STT</th>
-                            <th style="width: 20%;">Thời gian</th>
-                            <th style="width: 40%;">Nội dung</th>
-                            <th style="width: 20%;">Ghi chú</th>
+                            <th style="width: 20%; text-align: center;">Thời gian</th>
+                            <th style="width: 40%; text-align: center;">Nội dung</th>
+                            <th style="width: 20%; text-align: center;">Ghi chú</th>
                             <th class="admin-only-cell" style="width: 15%; text-align: center;">Thao tác</th>
                         </tr>
                     </thead>
@@ -147,7 +148,7 @@
                 <h4 id="form-plan-title" style="margin-top: 0; color: #0056b3;">+ Thêm Kế hoạch mới</h4>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 150px;">
-                        <input type="text" id="pl-time" placeholder="Thời gian (VD: Tháng 8, Tuần 1...)">
+                        <input type="text" id="pl-time" placeholder="Thời gian (VD: Tuần 1...)">
                     </div>
                     <div style="flex: 2; min-width: 250px;">
                         <input type="text" id="pl-content" placeholder="Nội dung sinh hoạt, công việc">
@@ -298,6 +299,7 @@
         <button class="no-print btn-success" onclick="window.print()" style="margin-bottom: 15px; float: right;">Xuất Biên Bản (In/PDF)</button>
         
         <div id="print-area">
+            
             <div class="print-header screen" id="print-header-info" style="display: none;">
                 <table style="width: 100%; padding-left: 2mm;">
                     <tr>
@@ -394,7 +396,7 @@
         let currentMeetingId = null;
         let editingMemberIndex = -1; 
         let viewingTaskTeacherIndex = -1; 
-        let editingPlanIndex = -1; // Biến lưu index của Kế hoạch đang chỉnh sửa
+        let editingPlanIndex = -1; 
         
         let plans = [];
         let meetings = [];
@@ -405,9 +407,8 @@
             { name: "Cô Nguyễn Thị B", role: "Tổ phó", subject: "Toán 10", task: "Thư ký cuộc họp", username: "gv_cob", password: "123", tasks: [], yearlyEval: "Chưa đánh giá" }
         ];
 
-        // --- 3. LẮNG NGHE DỮ LIỆU THEO THỜI GIAN THỰC (REALTIME LISTENERS) ---
+        // --- 3. LẮNG NGHE DỮ LIỆU THEO THỜI GIAN THỰC ---
         
-        // Đồng bộ dữ liệu Kế hoạch chi tiết
         db.ref('plans').on('value', snapshot => {
             const data = snapshot.val();
             plans = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
@@ -416,7 +417,6 @@
             }
         });
 
-        // Đồng bộ danh sách cuộc họp từ Firebase
         db.ref('meetings').on('value', snapshot => {
             const data = snapshot.val();
             meetings = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
@@ -434,7 +434,6 @@
             }
         });
 
-        // Đồng bộ danh sách thành viên & nhiệm vụ từ Firebase
         db.ref('members').on('value', snapshot => {
             const data = snapshot.val();
             if (!data) {
@@ -497,7 +496,7 @@
             document.getElementById('tab-task-content').style.display = tabName === 'task' ? 'block' : 'none';
             
             if (tabName === 'task') closeTaskDetail(); 
-            if (tabName === 'plan') cancelEditPlan(); // Reset form kế hoạch khi vào tab
+            if (tabName === 'plan') cancelEditPlan(); 
         }
 
         function login() {
@@ -527,7 +526,6 @@
             document.getElementById('login-username').value = '';
             document.getElementById('login-password').value = '';
             
-            // Đăng nhập xong hiển thị luôn Tab Kế hoạch chi tiết
             switchTab('plan');
             showScreen('main-app');
         }
@@ -556,10 +554,10 @@
                     `;
                 }
                 tr.innerHTML = `
-                    <td style="text-align: center;"><b>${index + 1}</b></td>
-                    <td><b>${pl.time}</b></td>
-                    <td><div class="format-text" style="font-size: 13px;">${formatParagraphs(pl.content)}</div></td>
-                    <td><div class="format-text" style="font-size: 13px;">${formatParagraphs(pl.note || '')}</div></td>
+                    <td style="text-align: center; vertical-align: middle;"><b>${index + 1}</b></td>
+                    <td style="text-align: center; vertical-align: middle;"><b>${pl.time}</b></td>
+                    <td><div class="no-indent-text" style="font-size: 14px;">${formatParagraphs(pl.content)}</div></td>
+                    <td><div class="no-indent-text" style="font-size: 14px;">${formatParagraphs(pl.note || '')}</div></td>
                     ${adminCols}
                 `;
                 tbody.appendChild(tr);
