@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sổ Ghi Chép Tổ Toán - Tin</title>
 
-    <!-- KẾT NỐI THƯ VIỆN FIREBASE -->
+    <!-- KẾT NỐI THƯ VIỆN FIREBASE QUA CDN -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     
@@ -46,7 +46,7 @@
 
         .meeting-item { border-left: 4px solid #0056b3; padding: 10px 15px; background: #f9f9f9; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;}
         
-        /* Labels cho trạng thái */
+        /* Labels */
         .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white;}
         .bg-secondary { background-color: #6c757d; }
         .bg-success { background-color: #28a745; }
@@ -65,20 +65,15 @@
         #print-area h3 { font-size: 14pt; font-weight: bold; text-align: center; margin-top: 0;}
         #print-area h4 { font-size: 14pt; font-weight: bold; margin-left: 0; margin-top: 20px; margin-bottom: 5px; }
         
-        /* Căn đều 2 bên và thụt đầu dòng đoạn văn */
         .format-text p { text-align: justify; text-indent: 1.27cm; margin-top: 5px; margin-bottom: 5px; }
         .no-indent-text p { text-indent: 0; margin-top: 5px; margin-bottom: 5px; text-align: justify; }
         
-        /* Đề mục con (1, 2, 3...) thụt lề toàn khối 1.27cm */
         .comment-box { margin-left: 1.27cm; margin-bottom: 10px; }
         .comment-meta { font-weight: bold; margin-bottom: 5px; }
         .comment-box .format-text p { text-indent: 0; margin-top: 5px; }
 
-        /* CSS ĐẶC BIỆT KHI XUẤT RA MÁY IN / PDF */
-        @page {
-            size: A4;
-            margin: 20mm; /* Lề: 2cm cho toàn bộ khung giấy */
-        }
+        /* CSS MÁY IN / PDF */
+        @page { size: A4; margin: 20mm; }
         @media print {
             body { background: white; }
             header, .no-print { display: none !important; }
@@ -86,15 +81,15 @@
             .print-header { display: block !important; margin-bottom: 20px; }
             .print-header table { width: 100%; border: none; border-collapse: collapse; }
             .print-header td { border: none; padding: 0; vertical-align: top; }
-            
-            /* Lùi toàn bộ nội dung văn bản vào 1cm để có lề trái 3cm (2cm page + 1cm body) */
             .document-body { margin-left: 10mm; } 
         }
+        
+        /* Input điểm */
+        .point-input { width: 60px; padding: 5px; margin: 0; text-align: center; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <!-- Header dùng chung -->
     <header class="no-print">
         <div>
             <h2 style="margin:0; color:white; font-family: 'Segoe UI'; font-size: 18px;">Sổ ghi chép nội dung các hoạt động của tổ Toán - Tin trường THPT ATK Tân Trào</h2>
@@ -102,7 +97,6 @@
         <div id="user-info"></div>
     </header>
 
-    <!-- MÀN HÌNH ĐĂNG NHẬP -->
     <div id="login-screen" class="container screen active no-print">
         <h2 style="text-align: center;">Đăng nhập hệ thống</h2>
         <div style="max-width: 350px; margin: 0 auto; background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
@@ -111,12 +105,9 @@
             <label>Mật khẩu:</label>
             <input type="password" id="login-password" placeholder="Nhập mật khẩu...">
             <button onclick="login()" style="width: 100%; padding: 10px; font-size: 16px;">Đăng nhập</button>
-            <p style="text-align: center; font-size: 13px; color: #666; margin-top: 15px;">
-            </p>
         </div>
     </div>
 
-    <!-- MAIN APP CONTAINER -->
     <div id="main-app" class="screen container no-print">
         <div class="tab-menu">
             <button id="tab-plan" class="tab-btn active-tab" onclick="switchTab('plan')">Kế hoạch chi tiết</button>
@@ -126,7 +117,7 @@
             <button id="tab-stats" class="tab-btn" onclick="switchTab('stats')">Thống kê & Biểu đồ</button>
         </div>
 
-        <!-- TAB 0: KẾ HOẠCH CHI TIẾT -->
+        <!-- TAB 0: KẾ HOẠCH -->
         <div id="tab-plan-content">
             <div style="text-align: center; margin-bottom: 10px;">
                 <h3 style="margin: 0; font-size: 20px;">KẾ HOẠCH CHI TIẾT NĂM HỌC</h3>
@@ -147,7 +138,6 @@
                 </table>
             </div>
 
-            <!-- Form Thêm/Sửa Kế hoạch (Chỉ dành cho Tổ trưởng) -->
             <div id="admin-plan-form" class="admin-only" style="margin-top: 20px; background: #e9ecef; padding: 15px; border-radius: 5px;">
                 <h4 id="form-plan-title" style="margin-top: 0; color: #0056b3;">+ Thêm Kế hoạch mới</h4>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -168,7 +158,7 @@
             </div>
         </div>
 
-        <!-- TAB 1: DANH SÁCH CUỘC HỌP -->
+        <!-- TAB 1: BIÊN BẢN -->
         <div id="tab-meeting-content" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="margin: 0;">Các biên bản sinh hoạt</h3>
@@ -178,7 +168,7 @@
             <div id="meeting-list"></div>
         </div>
 
-        <!-- TAB 2: QUẢN LÝ THÀNH VIÊN -->
+        <!-- TAB 2: THÀNH VIÊN -->
         <div id="tab-member-content" style="display: none;">
             <h3 style="margin: 0;">Danh sách và Phân công nhiệm vụ</h3>
             <div style="overflow-x: auto;">
@@ -219,7 +209,7 @@
             </div>
         </div>
 
-        <!-- TAB 3: ĐÁNH GIÁ & NHIỆM VỤ -->
+        <!-- TAB 3: NHIỆM VỤ -->
         <div id="tab-task-content" style="display: none;">
             <div id="task-overview">
                 <h3 style="margin: 0;">Theo dõi & Đánh giá nhiệm vụ giáo viên</h3>
@@ -284,9 +274,36 @@
         <!-- TAB 4: THỐNG KÊ & BIỂU ĐỒ -->
         <div id="tab-stats-content" style="display: none;">
             <div style="text-align: center; margin-bottom: 20px;">
-                <h3 style="margin: 0; font-size: 20px;">TỔNG HỢP KẾT QUẢ ĐÁNH GIÁ THI ĐUA</h3>
+                <h3 style="margin: 0; font-size: 20px; text-transform: uppercase;">TỔNG HỢP & QUY ĐỔI ĐIỂM THI ĐUA</h3>
             </div>
             
+            <!-- Khu vực cài đặt điểm số -->
+            <div style="background: #e9ecef; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px;">
+                <h4 style="margin-top: 0; margin-bottom: 10px; color: #0056b3;">Bảng Quy đổi điểm số</h4>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span class="badge" style="background-color: #ffc107; color: black;">Xuất sắc:</span> 
+                        <input type="number" id="pt-xs" class="point-input" disabled>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span class="badge bg-success">Tốt:</span> 
+                        <input type="number" id="pt-tot" class="point-input" disabled>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span class="badge bg-primary">Hoàn thành:</span> 
+                        <input type="number" id="pt-ht" class="point-input" disabled>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span class="badge bg-danger">Chưa HT:</span> 
+                        <input type="number" id="pt-cht" class="point-input" disabled>
+                    </div>
+                    <div class="admin-only" style="margin-left: auto;">
+                        <button class="btn-warning" id="btn-edit-points" onclick="enableEditPoints()">Sửa điểm</button>
+                        <button class="btn-success" id="btn-save-points" onclick="savePoints()" style="display: none;">Lưu điểm</button>
+                    </div>
+                </div>
+            </div>
+
             <div style="overflow-x: auto;">
                 <table class="data-table">
                     <thead>
@@ -297,6 +314,7 @@
                             <th style="text-align: center; background-color: #007bff;">Hoàn thành</th>
                             <th style="text-align: center; background-color: #dc3545;">Chưa HT</th>
                             <th style="text-align: center; background-color: #6c757d;">Tổng số NV</th>
+                            <th style="text-align: center; background-color: #6610f2; color: white;">TỔNG ĐIỂM</th>
                         </tr>
                     </thead>
                     <tbody id="stats-table-list"></tbody>
@@ -304,7 +322,7 @@
             </div>
 
             <div style="margin-top: 40px; background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-                <h4 style="text-align: center; margin-top: 0; color: #0056b3;">BIỂU ĐỒ SO SÁNH KẾT QUẢ GIỮA CÁC GIÁO VIÊN</h4>
+                <h4 style="text-align: center; margin-top: 0; color: #0056b3;">BIỂU ĐỒ ĐIỂM SỐ TỔNG HỢP CỦA GIÁO VIÊN</h4>
                 <div style="position: relative; height:400px; width:100%">
                     <canvas id="evaluationChart"></canvas>
                 </div>
@@ -327,13 +345,12 @@
         <button class="btn-danger" onclick="showScreen('main-app')">Hủy</button>
     </div>
 
-    <!-- MÀN HÌNH CHI TIẾT & XUẤT BIÊN BẢN -->
+    <!-- MÀN HÌNH CHI TIẾT BIÊN BẢN -->
     <div id="detail-screen" class="container screen">
         <button class="no-print" onclick="showScreen('main-app')" style="margin-bottom: 15px;">&larr; Quay lại</button>
         <button class="no-print btn-success" onclick="window.print()" style="margin-bottom: 15px; float: right;">Xuất Biên Bản (In/PDF)</button>
         
         <div id="print-area">
-            
             <div class="print-header screen" id="print-header-info" style="display: none;">
                 <table style="width: 100%; padding-left: 2mm;">
                     <tr>
@@ -385,7 +402,7 @@
                         <p style="font-weight: bold; margin: 0;" id="d-host-name"></p>
                     </div>
                 </div>
-            </div> 
+            </div>
         </div>
 
         <div class="no-print" style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 15px;">
@@ -410,7 +427,7 @@
     </div>
 
     <script>
-        // --- 1. CẤU HÌNH FIREBASE KẾT NỐI ĐÁM MÂY ---
+        // --- 1. CẤU HÌNH FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyCv8qI2-4CIm9-YJNBlIawKXpF0VAfjBtc",
             authDomain: "toantin-d32b2.firebaseapp.com",
@@ -435,20 +452,21 @@
         let plans = [];
         let meetings = [];
         let membersData = [];
-        let myChart = null; // Biến lưu trữ biểu đồ
+        
+        // Mặc định quy đổi điểm
+        let evalPoints = { xs: 10, tot: 8, ht: 5, cht: 0 }; 
+        let myChart = null; 
 
         const defaultMembers = [
             { name: "Tên Tổ Trưởng (Sửa lại)", role: "Tổ trưởng", subject: "Toán", task: "Chủ tọa", username: "admin", password: "admin", tasks: [], yearlyEval: "Chưa đánh giá" },
             { name: "Cô Nguyễn Thị B", role: "Tổ phó", subject: "Toán 10", task: "Thư ký cuộc họp", username: "gv_cob", password: "123", tasks: [], yearlyEval: "Chưa đánh giá" }
         ];
 
-        // --- 3. LẮNG NGHE DỮ LIỆU THEO THỜI GIAN THỰC ---
+        // --- 3. LẮNG NGHE DỮ LIỆU TỪ FIREBASE ---
         db.ref('plans').on('value', snapshot => {
             const data = snapshot.val();
             plans = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
-            if (document.getElementById('main-app').classList.contains('active')) {
-                renderPlans();
-            }
+            if (document.getElementById('main-app').classList.contains('active')) renderPlans();
         });
 
         db.ref('meetings').on('value', snapshot => {
@@ -489,12 +507,20 @@
                 if (viewingTaskTeacherIndex >= 0 && document.getElementById('task-detail').style.display === 'block') {
                     renderTeacherTasks();
                 }
-                if (document.getElementById('tab-stats-content').style.display === 'block') {
-                    renderStats();
-                }
+                if (document.getElementById('tab-stats-content').style.display === 'block') renderStats();
             }
         });
 
+        db.ref('settings/points').on('value', snapshot => {
+            if(snapshot.val()) {
+                evalPoints = snapshot.val();
+            }
+            if (document.getElementById('main-app').classList.contains('active') && document.getElementById('tab-stats-content').style.display === 'block') {
+                renderStats();
+            }
+        });
+
+        // --- CÁC HÀM HELPER ---
         function formatParagraphs(text) {
             if (!text) return '';
             let paragraphs = text.split(/\n+/).filter(p => p.trim() !== '');
@@ -513,11 +539,7 @@
             document.querySelectorAll('body > .screen').forEach(el => el.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
             if (screenId === 'main-app') { 
-                renderPlans();
-                renderMeetings(); 
-                renderMembers(); 
-                renderTaskOverview(); 
-                renderStats();
+                renderPlans(); renderMeetings(); renderMembers(); renderTaskOverview(); renderStats();
             }
         }
 
@@ -568,7 +590,7 @@
 
         function logout() { currentUser = { id: '', name: '', role: '', username: '' }; cancelEdit(); cancelEditPlan(); showScreen('login-screen'); }
 
-        // --- MODULE KẾ HOẠCH CHI TIẾT ---
+        // --- MODULE KẾ HOẠCH ---
         function renderPlans() {
             const tbody = document.getElementById('plan-list');
             tbody.innerHTML = '';
@@ -652,7 +674,6 @@
             }
         }
 
-
         // --- QUẢN LÝ THÀNH VIÊN ---
         function renderMembers() {
             const tbody = document.getElementById('member-list');
@@ -723,7 +744,6 @@
             document.getElementById('btn-cancel-edit').style.display = "none";
         }
 
-        // --- MODULE NHIỆM VỤ ---
         function renderTaskOverview() {
             const tbody = document.getElementById('task-overview-list'); tbody.innerHTML = '';
             membersData.forEach((mb, index) => {
@@ -879,7 +899,6 @@
                 let commentsArr = m.comments ? (Array.isArray(m.comments) ? m.comments : Object.values(m.comments)) : [];
                 let commentCount = commentsArr.length;
 
-                // Xử lý kiểm tra Hạn chót
                 let isLocked = false;
                 if (m.deadline) {
                     let deadlineTime = new Date(m.deadline).getTime();
@@ -911,7 +930,6 @@
             currentMeetingId = id; const m = meetings.find(x => x.id === id);
             document.getElementById('d-title').innerText = m.title;
             
-            // Format Thời gian chỉ lấy Ngày Tháng Năm
             let displayTime = m.time || 'Chưa xác định';
             if (m.time) {
                 try {
@@ -977,8 +995,6 @@
             const text = document.getElementById('c-text').value.trim();
             if (!text) return alert('Vui lòng nhập ý kiến!');
             const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
-            const now = new Date();
-            const timeString = now.getHours() + ':' + (now.getMinutes() < 10 ? '0'+now.getMinutes() : now.getMinutes()) + ' ngày ' + now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear();
             
             if(!meetings[mIndex].comments) meetings[mIndex].comments = [];
             if(!Array.isArray(meetings[mIndex].comments)) {
@@ -1032,15 +1048,44 @@
         }
 
         // --- MODULE THỐNG KÊ & BIỂU ĐỒ ---
+        function enableEditPoints() {
+            document.getElementById('pt-xs').disabled = false;
+            document.getElementById('pt-tot').disabled = false;
+            document.getElementById('pt-ht').disabled = false;
+            document.getElementById('pt-cht').disabled = false;
+            document.getElementById('btn-edit-points').style.display = 'none';
+            document.getElementById('btn-save-points').style.display = 'inline-block';
+        }
+
+        function savePoints() {
+            const xs = parseFloat(document.getElementById('pt-xs').value) || 0;
+            const tot = parseFloat(document.getElementById('pt-tot').value) || 0;
+            const ht = parseFloat(document.getElementById('pt-ht').value) || 0;
+            const cht = parseFloat(document.getElementById('pt-cht').value) || 0;
+            
+            db.ref('settings/points').set({ xs, tot, ht, cht }).then(() => {
+                document.getElementById('pt-xs').disabled = true;
+                document.getElementById('pt-tot').disabled = true;
+                document.getElementById('pt-ht').disabled = true;
+                document.getElementById('pt-cht').disabled = true;
+                document.getElementById('btn-edit-points').style.display = 'inline-block';
+                document.getElementById('btn-save-points').style.display = 'none';
+                alert("Đã cập nhật quy tắc tính điểm!");
+            });
+        }
+
         function renderStats() {
             const tbody = document.getElementById('stats-table-list');
             tbody.innerHTML = '';
             
+            // Cập nhật giá trị lên ô input
+            document.getElementById('pt-xs').value = evalPoints.xs;
+            document.getElementById('pt-tot').value = evalPoints.tot;
+            document.getElementById('pt-ht').value = evalPoints.ht;
+            document.getElementById('pt-cht').value = evalPoints.cht;
+
             let labels = [];
-            let dataXS = [];
-            let dataTot = [];
-            let dataHT = [];
-            let dataCHT = [];
+            let scores = [];
 
             membersData.forEach((mb) => {
                 let xs = 0, tot = 0, ht = 0, cht = 0;
@@ -1054,11 +1099,11 @@
                     });
                 }
                 
+                // Quy đổi ra tổng điểm
+                let totalScore = (xs * evalPoints.xs) + (tot * evalPoints.tot) + (ht * evalPoints.ht) + (cht * evalPoints.cht);
+                
                 labels.push(mb.name);
-                dataXS.push(xs);
-                dataTot.push(tot);
-                dataHT.push(ht);
-                dataCHT.push(cht);
+                scores.push(totalScore);
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -1068,11 +1113,12 @@
                     <td style="text-align: center; color: #007bff; font-weight: bold; background-color: #e6f0ff;">${ht}</td>
                     <td style="text-align: center; color: #dc3545; font-weight: bold; background-color: #ffe6e6;">${cht}</td>
                     <td style="text-align: center;"><b>${xs + tot + ht + cht}</b></td>
+                    <td style="text-align: center; color: red; font-size: 16px;"><b>${totalScore}</b></td>
                 `;
                 tbody.appendChild(tr);
             });
 
-            // Vẽ biểu đồ
+            // Vẽ biểu đồ điểm số
             const ctx = document.getElementById('evaluationChart').getContext('2d');
             if (myChart) {
                 myChart.destroy(); 
@@ -1082,22 +1128,26 @@
                 type: 'bar',
                 data: {
                     labels: labels,
-                    datasets: [
-                        { label: 'Xuất sắc', data: dataXS, backgroundColor: '#ffc107' },
-                        { label: 'Tốt', data: dataTot, backgroundColor: '#28a745' },
-                        { label: 'Hoàn thành', data: dataHT, backgroundColor: '#007bff' },
-                        { label: 'Chưa HT', data: dataCHT, backgroundColor: '#dc3545' }
-                    ]
+                    datasets: [{
+                        label: 'Tổng điểm thi đua',
+                        data: scores,
+                        backgroundColor: '#17a2b8',
+                        borderColor: '#117a8b',
+                        borderWidth: 1
+                    }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        x: { stacked: true },
-                        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+                        y: { beginAtZero: true }
                     },
                     plugins: {
-                        legend: { position: 'bottom' }
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Biểu đồ điểm số tổng hợp theo quy đổi'
+                        }
                     }
                 }
             });
