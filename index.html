@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sổ Ghi Chép Tổ Toán - Tin</title>
 
-    <!-- KẾT NỐI THƯ VIỆN FIREBASE QUA CDN (Phiên bản Compat cho HTML thuần) -->
+    <!-- KẾT NỐI THƯ VIỆN FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    
+    <!-- KẾT NỐI THƯ VIỆN VẼ BIỂU ĐỒ CHART.JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         /* CSS Định dạng giao diện chung */
@@ -120,6 +123,7 @@
             <button id="tab-meeting" class="tab-btn" onclick="switchTab('meeting')">Sinh hoạt chuyên môn</button>
             <button id="tab-member" class="tab-btn" onclick="switchTab('member')">Danh sách thành viên</button>
             <button id="tab-task" class="tab-btn" onclick="switchTab('task')">Nhiệm vụ và Đánh giá</button>
+            <button id="tab-stats" class="tab-btn" onclick="switchTab('stats')">Thống kê & Biểu đồ</button>
         </div>
 
         <!-- TAB 0: KẾ HOẠCH CHI TIẾT -->
@@ -276,6 +280,36 @@
                 </div>
             </div>
         </div>
+
+        <!-- TAB 4: THỐNG KÊ & BIỂU ĐỒ -->
+        <div id="tab-stats-content" style="display: none;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; font-size: 20px;">TỔNG HỢP KẾT QUẢ ĐÁNH GIÁ THI ĐUA</h3>
+            </div>
+            
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: center;">Họ và Tên giáo viên</th>
+                            <th style="text-align: center; background-color: #ffc107; color: black;">Xuất sắc</th>
+                            <th style="text-align: center; background-color: #28a745;">Tốt</th>
+                            <th style="text-align: center; background-color: #007bff;">Hoàn thành</th>
+                            <th style="text-align: center; background-color: #dc3545;">Chưa HT</th>
+                            <th style="text-align: center; background-color: #6c757d;">Tổng số NV</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stats-table-list"></tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 40px; background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+                <h4 style="text-align: center; margin-top: 0; color: #0056b3;">BIỂU ĐỒ SO SÁNH KẾT QUẢ GIỮA CÁC GIÁO VIÊN</h4>
+                <div style="position: relative; height:400px; width:100%">
+                    <canvas id="evaluationChart"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- MÀN HÌNH TẠO CUỘC HỌP -->
@@ -351,7 +385,7 @@
                         <p style="font-weight: bold; margin: 0;" id="d-host-name"></p>
                     </div>
                 </div>
-            </div> <!-- Kết thúc phần document-body -->
+            </div> 
         </div>
 
         <div class="no-print" style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 15px;">
@@ -401,6 +435,7 @@
         let plans = [];
         let meetings = [];
         let membersData = [];
+        let myChart = null; // Biến lưu trữ biểu đồ
 
         const defaultMembers = [
             { name: "Tên Tổ Trưởng (Sửa lại)", role: "Tổ trưởng", subject: "Toán", task: "Chủ tọa", username: "admin", password: "admin", tasks: [], yearlyEval: "Chưa đánh giá" },
@@ -408,7 +443,6 @@
         ];
 
         // --- 3. LẮNG NGHE DỮ LIỆU THEO THỜI GIAN THỰC ---
-        
         db.ref('plans').on('value', snapshot => {
             const data = snapshot.val();
             plans = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
@@ -455,6 +489,9 @@
                 if (viewingTaskTeacherIndex >= 0 && document.getElementById('task-detail').style.display === 'block') {
                     renderTeacherTasks();
                 }
+                if (document.getElementById('tab-stats-content').style.display === 'block') {
+                    renderStats();
+                }
             }
         });
 
@@ -480,23 +517,22 @@
                 renderMeetings(); 
                 renderMembers(); 
                 renderTaskOverview(); 
+                renderStats();
             }
         }
 
         function switchTab(tabName) {
-            document.getElementById('tab-plan').classList.remove('active-tab');
-            document.getElementById('tab-meeting').classList.remove('active-tab');
-            document.getElementById('tab-member').classList.remove('active-tab');
-            document.getElementById('tab-task').classList.remove('active-tab');
-            document.getElementById('tab-' + tabName).classList.add('active-tab');
-
-            document.getElementById('tab-plan-content').style.display = tabName === 'plan' ? 'block' : 'none';
-            document.getElementById('tab-meeting-content').style.display = tabName === 'meeting' ? 'block' : 'none';
-            document.getElementById('tab-member-content').style.display = tabName === 'member' ? 'block' : 'none';
-            document.getElementById('tab-task-content').style.display = tabName === 'task' ? 'block' : 'none';
+            ['plan', 'meeting', 'member', 'task', 'stats'].forEach(t => {
+                document.getElementById('tab-' + t).classList.remove('active-tab');
+                document.getElementById('tab-' + t + '-content').style.display = 'none';
+            });
             
+            document.getElementById('tab-' + tabName).classList.add('active-tab');
+            document.getElementById('tab-' + tabName + '-content').style.display = 'block';
+
             if (tabName === 'task') closeTaskDetail(); 
             if (tabName === 'plan') cancelEditPlan(); 
+            if (tabName === 'stats') renderStats();
         }
 
         function login() {
@@ -687,6 +723,7 @@
             document.getElementById('btn-cancel-edit').style.display = "none";
         }
 
+        // --- MODULE NHIỆM VỤ ---
         function renderTaskOverview() {
             const tbody = document.getElementById('task-overview-list'); tbody.innerHTML = '';
             membersData.forEach((mb, index) => {
@@ -992,6 +1029,78 @@
                     cDiv.appendChild(div);
                 });
             }
+        }
+
+        // --- MODULE THỐNG KÊ & BIỂU ĐỒ ---
+        function renderStats() {
+            const tbody = document.getElementById('stats-table-list');
+            tbody.innerHTML = '';
+            
+            let labels = [];
+            let dataXS = [];
+            let dataTot = [];
+            let dataHT = [];
+            let dataCHT = [];
+
+            membersData.forEach((mb) => {
+                let xs = 0, tot = 0, ht = 0, cht = 0;
+                
+                if (mb.tasks && mb.tasks.length > 0) {
+                    mb.tasks.forEach(t => {
+                        if (t.status === 'Hoàn thành xuất sắc') xs++;
+                        else if (t.status === 'Hoàn thành tốt') tot++;
+                        else if (t.status === 'Hoàn thành') ht++;
+                        else if (t.status === 'Chưa hoàn thành') cht++;
+                    });
+                }
+                
+                labels.push(mb.name);
+                dataXS.push(xs);
+                dataTot.push(tot);
+                dataHT.push(ht);
+                dataCHT.push(cht);
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><b>${mb.name}</b></td>
+                    <td style="text-align: center; color: #b38600; font-weight: bold; background-color: #fff9e6;">${xs}</td>
+                    <td style="text-align: center; color: #28a745; font-weight: bold; background-color: #e6f4ea;">${tot}</td>
+                    <td style="text-align: center; color: #007bff; font-weight: bold; background-color: #e6f0ff;">${ht}</td>
+                    <td style="text-align: center; color: #dc3545; font-weight: bold; background-color: #ffe6e6;">${cht}</td>
+                    <td style="text-align: center;"><b>${xs + tot + ht + cht}</b></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Vẽ biểu đồ
+            const ctx = document.getElementById('evaluationChart').getContext('2d');
+            if (myChart) {
+                myChart.destroy(); 
+            }
+            
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Xuất sắc', data: dataXS, backgroundColor: '#ffc107' },
+                        { label: 'Tốt', data: dataTot, backgroundColor: '#28a745' },
+                        { label: 'Hoàn thành', data: dataHT, backgroundColor: '#007bff' },
+                        { label: 'Chưa HT', data: dataCHT, backgroundColor: '#dc3545' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
         }
     </script>
 </body>
