@@ -268,7 +268,7 @@
                             <th style="width: 30%;">Kết quả thực hiện (Giáo viên nhập)</th>
                             <th style="width: 15%;">Tổ trưởng đánh giá</th>
                             <th style="width: 20%;">Ghi chú (Tổ trưởng)</th>
-                            <th style="width: 10%;">Lưu</th>
+                            <th style="width: 10%;">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody id="td-task-list"></tbody>
@@ -790,6 +790,27 @@
 
         function closeTaskDetail() { viewingTaskTeacherIndex = -1; document.getElementById('task-overview').style.display = 'block'; document.getElementById('task-detail').style.display = 'none'; renderTaskOverview(); }
 
+        // MỚI: Di chuyển nhiệm vụ Lên/Xuống
+        function moveTaskUp(taskIndex) {
+            if (taskIndex > 0) {
+                const tasks = membersData[viewingTaskTeacherIndex].tasks;
+                const temp = tasks[taskIndex - 1];
+                tasks[taskIndex - 1] = tasks[taskIndex];
+                tasks[taskIndex] = temp;
+                db.ref('members').set(membersData);
+            }
+        }
+
+        function moveTaskDown(taskIndex) {
+            const tasks = membersData[viewingTaskTeacherIndex].tasks;
+            if (taskIndex < tasks.length - 1) {
+                const temp = tasks[taskIndex + 1];
+                tasks[taskIndex + 1] = tasks[taskIndex];
+                tasks[taskIndex] = temp;
+                db.ref('members').set(membersData);
+            }
+        }
+
         function renderTeacherTasks() {
             const mb = membersData[viewingTaskTeacherIndex];
             const tbody = document.getElementById('td-task-list'); tbody.innerHTML = '';
@@ -813,7 +834,18 @@
                     let noteHtml = currentUser.role === 'admin' ? `<textarea id="t-note-${tIndex}" rows="2" placeholder="Ghi chú của Tổ trưởng...">${t.note || ''}</textarea>` : `<div class="format-text" style="font-size: 13px;">${formatParagraphs(t.note || '')}</div>`;
 
                     let actionHtml = isOwnerOrAdmin ? `<button class="btn-success" style="padding: 5px 10px; margin-bottom: 5px; width: 100%;" onclick="updateTask(${tIndex})">Lưu</button>` : '';
-                    if (currentUser.role === 'admin') actionHtml += `<button class="btn-danger" style="padding: 5px 10px; width: 100%;" onclick="deleteTask(${tIndex})">Xóa</button>`;
+                    
+                    if (currentUser.role === 'admin') {
+                        actionHtml += `<button class="btn-danger" style="padding: 5px 10px; width: 100%; margin-bottom: 5px;" onclick="deleteTask(${tIndex})">Xóa</button>`;
+                        
+                        let upDisplay = tIndex > 0 ? `onclick="moveTaskUp(${tIndex})"` : `disabled style="opacity: 0.5; cursor: not-allowed; background-color: #ccc; border: none;"`;
+                        let downDisplay = tIndex < mb.tasks.length - 1 ? `onclick="moveTaskDown(${tIndex})"` : `disabled style="opacity: 0.5; cursor: not-allowed; background-color: #ccc; border: none;"`;
+                        
+                        actionHtml += `<div style="display: flex; gap: 5px;">
+                            <button class="btn-info" style="padding: 4px; flex: 1; font-size: 12px; border: none; border-radius: 4px;" ${upDisplay}>▲</button>
+                            <button class="btn-info" style="padding: 4px; flex: 1; font-size: 12px; border: none; border-radius: 4px;" ${downDisplay}>▼</button>
+                        </div>`;
+                    }
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
@@ -1008,8 +1040,6 @@
             const text = document.getElementById('c-text').value.trim();
             if (!text) return alert('Vui lòng nhập ý kiến!');
             const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
-            const now = new Date();
-            const timeString = now.getHours() + ':' + (now.getMinutes() < 10 ? '0'+now.getMinutes() : now.getMinutes()) + ' ngày ' + now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear();
             
             if(!meetings[mIndex].comments) meetings[mIndex].comments = [];
             if(!Array.isArray(meetings[mIndex].comments)) {
@@ -1093,7 +1123,6 @@
             const tbody = document.getElementById('stats-table-list');
             tbody.innerHTML = '';
             
-            // Cập nhật giá trị lên ô input
             document.getElementById('pt-xs').value = evalPoints.xs;
             document.getElementById('pt-tot').value = evalPoints.tot;
             document.getElementById('pt-ht').value = evalPoints.ht;
@@ -1114,11 +1143,9 @@
                     });
                 }
                 
-                // Thuật toán: Tính tổng điểm sau đó chia cho Tổng số nhiệm vụ
                 let totalTasks = xs + tot + ht + cht;
                 let totalSum = (xs * evalPoints.xs) + (tot * evalPoints.tot) + (ht * evalPoints.ht) + (cht * evalPoints.cht);
                 
-                // Tránh lỗi chia cho 0 nếu giáo viên chưa có nhiệm vụ nào
                 let averageScore = 0;
                 if (totalTasks > 0) {
                     averageScore = parseFloat((totalSum / totalTasks).toFixed(2));
@@ -1140,7 +1167,6 @@
                 tbody.appendChild(tr);
             });
 
-            // Vẽ biểu đồ điểm số trung bình
             const ctx = document.getElementById('evaluationChart').getContext('2d');
             if (myChart) {
                 myChart.destroy(); 
