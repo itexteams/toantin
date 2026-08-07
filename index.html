@@ -8,7 +8,7 @@
     <!-- KẾT NỐI THƯ VIỆN FIREBASE QUA CDN (Phiên bản Compat cho HTML thuần) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-    
+
     <!-- KẾT NỐI THƯ VIỆN VẼ BIỂU ĐỒ CHART.JS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -790,7 +790,6 @@
 
         function closeTaskDetail() { viewingTaskTeacherIndex = -1; document.getElementById('task-overview').style.display = 'block'; document.getElementById('task-detail').style.display = 'none'; renderTaskOverview(); }
 
-        // MỚI: Di chuyển nhiệm vụ Lên/Xuống
         function moveTaskUp(taskIndex) {
             if (taskIndex > 0) {
                 const tasks = membersData[viewingTaskTeacherIndex].tasks;
@@ -833,6 +832,11 @@
                     
                     let noteHtml = currentUser.role === 'admin' ? `<textarea id="t-note-${tIndex}" rows="2" placeholder="Ghi chú của Tổ trưởng...">${t.note || ''}</textarea>` : `<div class="format-text" style="font-size: 13px;">${formatParagraphs(t.note || '')}</div>`;
 
+                    // TÍNH NĂNG MỚI: TỔ TRƯỞNG ĐƯỢC SỬA TÊN NHIỆM VỤ
+                    let nameHtml = currentUser.role === 'admin' 
+                        ? `<textarea id="t-name-${tIndex}" rows="2" style="font-weight:bold;">${t.name}</textarea><br><small style="color:#666">Giao: ${t.date}</small>`
+                        : `<b>${t.name}</b><br><small style="color:#666">Giao: ${t.date}</small>`;
+
                     let actionHtml = isOwnerOrAdmin ? `<button class="btn-success" style="padding: 5px 10px; margin-bottom: 5px; width: 100%;" onclick="updateTask(${tIndex})">Lưu</button>` : '';
                     
                     if (currentUser.role === 'admin') {
@@ -849,7 +853,7 @@
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td><b>${t.name}</b><br><small style="color:#666">Giao: ${t.date}</small></td>
+                        <td>${nameHtml}</td>
                         <td><textarea id="t-result-${tIndex}" rows="2" ${isOwnerOrAdmin ? '' : 'disabled'}>${t.result || ''}</textarea></td>
                         <td>${statusHtml}</td>
                         <td>${noteHtml}</td>
@@ -876,6 +880,7 @@
 
         function updateTask(taskIndex) {
             const mb = membersData[viewingTaskTeacherIndex];
+            if (document.getElementById(`t-name-${taskIndex}`)) mb.tasks[taskIndex].name = document.getElementById(`t-name-${taskIndex}`).value.trim();
             if (document.getElementById(`t-result-${taskIndex}`)) mb.tasks[taskIndex].result = document.getElementById(`t-result-${taskIndex}`).value.trim();
             if (document.getElementById(`t-status-${taskIndex}`)) mb.tasks[taskIndex].status = document.getElementById(`t-status-${taskIndex}`).value;
             if (document.getElementById(`t-note-${taskIndex}`)) mb.tasks[taskIndex].note = document.getElementById(`t-note-${taskIndex}`).value.trim();
@@ -1040,6 +1045,8 @@
             const text = document.getElementById('c-text').value.trim();
             if (!text) return alert('Vui lòng nhập ý kiến!');
             const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
+            const now = new Date();
+            const timeString = now.getHours() + ':' + (now.getMinutes() < 10 ? '0'+now.getMinutes() : now.getMinutes()) + ' ngày ' + now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear();
             
             if(!meetings[mIndex].comments) meetings[mIndex].comments = [];
             if(!Array.isArray(meetings[mIndex].comments)) {
