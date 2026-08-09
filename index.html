@@ -268,7 +268,7 @@
                             <th style="width: 30%;">Kết quả thực hiện (Giáo viên nhập)</th>
                             <th style="width: 15%;">Tổ trưởng đánh giá</th>
                             <th style="width: 20%;">Ghi chú (Tổ trưởng)</th>
-                            <th style="width: 10%;">Thao tác</th>
+                            <th style="width: 10%;">Lưu</th>
                         </tr>
                     </thead>
                     <tbody id="td-task-list"></tbody>
@@ -358,7 +358,7 @@
         <button class="btn-danger" onclick="showScreen('main-app')">Hủy</button>
     </div>
 
-    <!-- MÀN HÌNH CHI TIẾT BIÊN BẢN -->
+    <!-- MÀN HÌNH CHI TIẾT & XUẤT BIÊN BẢN -->
     <div id="detail-screen" class="container screen">
         <button class="no-print" onclick="showScreen('main-app')" style="margin-bottom: 15px;">&larr; Quay lại</button>
         <button class="no-print btn-success" onclick="window.print()" style="margin-bottom: 15px; float: right;">Xuất Biên Bản (In/PDF)</button>
@@ -415,7 +415,7 @@
                         <p style="font-weight: bold; margin: 0;" id="d-host-name"></p>
                     </div>
                 </div>
-            </div>
+            </div> <!-- Kết thúc phần document-body -->
         </div>
 
         <div class="no-print" style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 15px;">
@@ -470,8 +470,10 @@
         let evalPoints = { xs: 10, tot: 8, ht: 5, cht: 0 }; 
         let myChart = null; 
 
+        // Tài khoản admin mặc định sẽ bị ẩn với các tài khoản khác
         const defaultMembers = [
-            { name: "Tên Tổ Trưởng (Sửa lại)", role: "Tổ trưởng", subject: "Toán", task: "Chủ tọa", username: "admin", password: "admin", tasks: [], yearlyEval: "Chưa đánh giá" },
+            { name: "Super Admin", role: "Quản trị viên", subject: "Quản trị hệ thống", task: "Quản trị viên", username: "admin", password: "admin", tasks: [], yearlyEval: "Chưa đánh giá" },
+            { name: "Phạm Ngọc Chiến", role: "Tổ trưởng", subject: "Toán", task: "Chủ tọa", username: "totruong", password: "123", tasks: [], yearlyEval: "Chưa đánh giá" },
             { name: "Cô Nguyễn Thị B", role: "Tổ phó", subject: "Toán 10", task: "Thư ký cuộc họp", username: "gv_cob", password: "123", tasks: [], yearlyEval: "Chưa đánh giá" }
         ];
 
@@ -580,6 +582,7 @@
 
             currentUser.name = user.name;
             currentUser.username = user.username;
+            // Tổ trưởng cũng có quyền admin thao tác
             currentUser.role = (user.username === 'admin' || user.role.toLowerCase().includes('tổ trưởng')) ? 'admin' : 'member';
             
             document.getElementById('user-info').innerHTML = `<span style="font-family:'Segoe UI'; font-size: 14px;"><b>Xin chào:</b> ${currentUser.name} | <a href="#" style="color:white; text-decoration: underline;" onclick="logout()">Thoát</a></span>`;
@@ -692,6 +695,9 @@
             const tbody = document.getElementById('member-list');
             tbody.innerHTML = '';
             membersData.forEach((mb, index) => {
+                // TÀNG HÌNH TÀI KHOẢN ADMIN: Nếu không đăng nhập bằng admin thì ẩn tài khoản admin đi
+                if (currentUser.username !== 'admin' && mb.username === 'admin') return;
+
                 const tr = document.createElement('tr');
                 let adminCols = '';
                 if (currentUser.role === 'admin') {
@@ -757,9 +763,13 @@
             document.getElementById('btn-cancel-edit').style.display = "none";
         }
 
+        // --- MODULE NHIỆM VỤ ---
         function renderTaskOverview() {
             const tbody = document.getElementById('task-overview-list'); tbody.innerHTML = '';
             membersData.forEach((mb, index) => {
+                // TÀNG HÌNH TÀI KHOẢN ADMIN: Ẩn tài khoản admin ở mục này
+                if (currentUser.username !== 'admin' && mb.username === 'admin') return;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><b>${mb.name}</b><br><small style="color:#666">${mb.role}</small></td>
@@ -790,26 +800,6 @@
 
         function closeTaskDetail() { viewingTaskTeacherIndex = -1; document.getElementById('task-overview').style.display = 'block'; document.getElementById('task-detail').style.display = 'none'; renderTaskOverview(); }
 
-        function moveTaskUp(taskIndex) {
-            if (taskIndex > 0) {
-                const tasks = membersData[viewingTaskTeacherIndex].tasks;
-                const temp = tasks[taskIndex - 1];
-                tasks[taskIndex - 1] = tasks[taskIndex];
-                tasks[taskIndex] = temp;
-                db.ref('members').set(membersData);
-            }
-        }
-
-        function moveTaskDown(taskIndex) {
-            const tasks = membersData[viewingTaskTeacherIndex].tasks;
-            if (taskIndex < tasks.length - 1) {
-                const temp = tasks[taskIndex + 1];
-                tasks[taskIndex + 1] = tasks[taskIndex];
-                tasks[taskIndex] = temp;
-                db.ref('members').set(membersData);
-            }
-        }
-
         function renderTeacherTasks() {
             const mb = membersData[viewingTaskTeacherIndex];
             const tbody = document.getElementById('td-task-list'); tbody.innerHTML = '';
@@ -832,28 +822,12 @@
                     
                     let noteHtml = currentUser.role === 'admin' ? `<textarea id="t-note-${tIndex}" rows="2" placeholder="Ghi chú của Tổ trưởng...">${t.note || ''}</textarea>` : `<div class="format-text" style="font-size: 13px;">${formatParagraphs(t.note || '')}</div>`;
 
-                    // TÍNH NĂNG MỚI: TỔ TRƯỞNG ĐƯỢC SỬA TÊN NHIỆM VỤ
-                    let nameHtml = currentUser.role === 'admin' 
-                        ? `<textarea id="t-name-${tIndex}" rows="2" style="font-weight:bold;">${t.name}</textarea><br><small style="color:#666">Giao: ${t.date}</small>`
-                        : `<b>${t.name}</b><br><small style="color:#666">Giao: ${t.date}</small>`;
-
                     let actionHtml = isOwnerOrAdmin ? `<button class="btn-success" style="padding: 5px 10px; margin-bottom: 5px; width: 100%;" onclick="updateTask(${tIndex})">Lưu</button>` : '';
-                    
-                    if (currentUser.role === 'admin') {
-                        actionHtml += `<button class="btn-danger" style="padding: 5px 10px; width: 100%; margin-bottom: 5px;" onclick="deleteTask(${tIndex})">Xóa</button>`;
-                        
-                        let upDisplay = tIndex > 0 ? `onclick="moveTaskUp(${tIndex})"` : `disabled style="opacity: 0.5; cursor: not-allowed; background-color: #ccc; border: none;"`;
-                        let downDisplay = tIndex < mb.tasks.length - 1 ? `onclick="moveTaskDown(${tIndex})"` : `disabled style="opacity: 0.5; cursor: not-allowed; background-color: #ccc; border: none;"`;
-                        
-                        actionHtml += `<div style="display: flex; gap: 5px;">
-                            <button class="btn-info" style="padding: 4px; flex: 1; font-size: 12px; border: none; border-radius: 4px;" ${upDisplay}>▲</button>
-                            <button class="btn-info" style="padding: 4px; flex: 1; font-size: 12px; border: none; border-radius: 4px;" ${downDisplay}>▼</button>
-                        </div>`;
-                    }
+                    if (currentUser.role === 'admin') actionHtml += `<button class="btn-danger" style="padding: 5px 10px; width: 100%;" onclick="deleteTask(${tIndex})">Xóa</button>`;
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td>${nameHtml}</td>
+                        <td><b>${t.name}</b><br><small style="color:#666">Giao: ${t.date}</small></td>
                         <td><textarea id="t-result-${tIndex}" rows="2" ${isOwnerOrAdmin ? '' : 'disabled'}>${t.result || ''}</textarea></td>
                         <td>${statusHtml}</td>
                         <td>${noteHtml}</td>
@@ -880,7 +854,6 @@
 
         function updateTask(taskIndex) {
             const mb = membersData[viewingTaskTeacherIndex];
-            if (document.getElementById(`t-name-${taskIndex}`)) mb.tasks[taskIndex].name = document.getElementById(`t-name-${taskIndex}`).value.trim();
             if (document.getElementById(`t-result-${taskIndex}`)) mb.tasks[taskIndex].result = document.getElementById(`t-result-${taskIndex}`).value.trim();
             if (document.getElementById(`t-status-${taskIndex}`)) mb.tasks[taskIndex].status = document.getElementById(`t-status-${taskIndex}`).value;
             if (document.getElementById(`t-note-${taskIndex}`)) mb.tasks[taskIndex].note = document.getElementById(`t-note-${taskIndex}`).value.trim();
@@ -991,7 +964,8 @@
             }
             document.getElementById('d-time').innerText = displayTime;
             
-            const toTruong = membersData.find(mb => mb.role && mb.role.toLowerCase().includes('tổ trưởng'));
+            // Tìm tên Chủ tọa là Tổ trưởng (Nhưng không được là tài khoản admin ẩn)
+            const toTruong = membersData.find(mb => mb.role && mb.role.toLowerCase().includes('tổ trưởng') && mb.username !== 'admin');
             const hostName = toTruong ? toTruong.name : (m.host || '.........................');
             
             document.getElementById('d-host').innerText = hostName;
@@ -1008,6 +982,7 @@
 
             document.getElementById('d-host-name').innerText = hostName;
             const secretary = membersData.find(mb => {
+                if (mb.username === 'admin') return false; // Loại trừ tài khoản admin khỏi phần Thư ký
                 const r = (mb.role || '').toLowerCase(); const t = (mb.task || '').toLowerCase();
                 return r.includes('thư ký') || r.includes('thư kí') || t.includes('thư ký') || t.includes('thư kí');
             });
@@ -1139,6 +1114,9 @@
             let scores = [];
 
             membersData.forEach((mb) => {
+                // TÀNG HÌNH TÀI KHOẢN ADMIN: Ẩn tài khoản admin ở mục này
+                if (currentUser.username !== 'admin' && mb.username === 'admin') return;
+
                 let xs = 0, tot = 0, ht = 0, cht = 0;
                 
                 if (mb.tasks && mb.tasks.length > 0) {
