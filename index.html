@@ -69,10 +69,10 @@
         .format-text p { text-align: justify; text-indent: 1.27cm; margin-top: 5px; margin-bottom: 5px; }
         .no-indent-text p { text-indent: 0; margin-top: 5px; margin-bottom: 5px; text-align: justify; }
         
-        /* Đề mục con (1, 2, 3...) thụt lề toàn khối 1.27cm */
-        .comment-box { margin-left: 1.27cm; margin-bottom: 10px; }
-        .comment-meta { font-weight: bold; margin-bottom: 5px; }
-        .comment-box .format-text p { text-indent: 0; margin-top: 5px; }
+        /* CẬP NHẬT: Đề mục con (1, 2, 3...) thụt lề tên, nội dung lùi dòng đầu và ra sát lề ở dòng tiếp theo */
+        .comment-box { margin-bottom: 10px; }
+        .comment-meta { font-weight: bold; margin-bottom: 5px; margin-left: 1.27cm; }
+        .comment-box .format-text p { margin-top: 5px; /* Kế thừa text-indent: 1.27cm từ .format-text p */ margin-left: 0; }
 
         /* CSS ĐẶC BIỆT KHI XUẤT RA MÁY IN / PDF */
         @page {
@@ -363,6 +363,13 @@
         <button class="no-print" onclick="showScreen('main-app')" style="margin-bottom: 15px;">&larr; Quay lại</button>
         <button class="no-print btn-success" onclick="window.print()" style="margin-bottom: 15px; float: right;">Xuất Biên Bản (In/PDF)</button>
         
+        <!-- Nhóm Nút Công Cụ Chỉnh Sửa Bản In Của Tổ Trưởng -->
+        <div class="no-print admin-only" style="float: right; margin-right: 10px;">
+            <button class="btn-warning" id="btn-edit-print" onclick="toggleEditPrint()" style="margin-bottom: 15px; margin-right: 5px;">📝 Sửa Bản In</button>
+            <button class="btn-danger" id="btn-restore-print" onclick="restoreOriginalPrint()" style="display:none; margin-bottom: 15px;">🔄 Khôi phục gốc</button>
+        </div>
+        <div style="clear: both;"></div>
+
         <div id="print-area">
             <div class="print-header screen" id="print-header-info" style="display: none;">
                 <table style="width: 100%; padding-left: 2mm;">
@@ -440,6 +447,12 @@
     </div>
 
     <script>
+        // --- LƯU TRỮ TEMPLATE ĐỂ KHÔI PHỤC BẢN IN GỐC ---
+        let printAreaTemplate = '';
+        document.addEventListener("DOMContentLoaded", () => {
+            printAreaTemplate = document.getElementById('print-area').innerHTML;
+        });
+
         // --- 1. CẤU HÌNH FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyCv8qI2-4CIm9-YJNBlIawKXpF0VAfjBtc",
@@ -466,11 +479,9 @@
         let meetings = [];
         let membersData = [];
         
-        // Mặc định quy đổi điểm
         let evalPoints = { xs: 10, tot: 8, ht: 5, cht: 0 }; 
         let myChart = null; 
 
-        // Tài khoản admin mặc định sẽ bị ẩn với các tài khoản khác
         const defaultMembers = [
             { name: "Super Admin", role: "Quản trị viên", subject: "Quản trị hệ thống", task: "Quản trị viên", username: "admin", password: "admin", tasks: [], yearlyEval: "Chưa đánh giá" },
             { name: "Phạm Ngọc Chiến", role: "Tổ trưởng", subject: "Toán", task: "Chủ tọa", username: "totruong", password: "123", tasks: [], yearlyEval: "Chưa đánh giá" },
@@ -493,8 +504,11 @@
                 if (currentMeetingId && document.getElementById('detail-screen').classList.contains('active')) {
                     const updatedM = meetings.find(x => x.id === currentMeetingId);
                     if (updatedM) {
-                        renderComments();
-                        document.getElementById('d-conclusion').innerHTML = formatParagraphs(updatedM.conclusion || '......................................................................................................');
+                        // Tránh ghi đè nếu đang xem bản in chỉnh sửa thủ công
+                        if(!updatedM.customHtml) {
+                            renderComments();
+                            document.getElementById('d-conclusion').innerHTML = formatParagraphs(updatedM.conclusion || '......................................................................................................');
+                        }
                         document.getElementById('c-deadline-input').value = updatedM.deadline || '';
                     }
                 }
@@ -582,7 +596,6 @@
 
             currentUser.name = user.name;
             currentUser.username = user.username;
-            // Tổ trưởng cũng có quyền admin thao tác
             currentUser.role = (user.username === 'admin' || user.role.toLowerCase().includes('tổ trưởng')) ? 'admin' : 'member';
             
             document.getElementById('user-info').innerHTML = `<span style="font-family:'Segoe UI'; font-size: 14px;"><b>Xin chào:</b> ${currentUser.name} | <a href="#" style="color:white; text-decoration: underline;" onclick="logout()">Thoát</a></span>`;
@@ -695,7 +708,6 @@
             const tbody = document.getElementById('member-list');
             tbody.innerHTML = '';
             membersData.forEach((mb, index) => {
-                // TÀNG HÌNH TÀI KHOẢN ADMIN: Nếu không đăng nhập bằng admin thì ẩn tài khoản admin đi
                 if (currentUser.username !== 'admin' && mb.username === 'admin') return;
 
                 const tr = document.createElement('tr');
@@ -767,7 +779,6 @@
         function renderTaskOverview() {
             const tbody = document.getElementById('task-overview-list'); tbody.innerHTML = '';
             membersData.forEach((mb, index) => {
-                // TÀNG HÌNH TÀI KHOẢN ADMIN: Ẩn tài khoản admin ở mục này
                 if (currentUser.username !== 'admin' && mb.username === 'admin') return;
 
                 const tr = document.createElement('tr');
@@ -951,6 +962,28 @@
 
         function viewMeeting(id) {
             currentMeetingId = id; const m = meetings.find(x => x.id === id);
+            
+            // --- KIỂM TRA BẢN IN TÙY CHỈNH CỦA TỔ TRƯỞNG ---
+            // Đầu tiên luôn thiết lập lại cấu trúc gốc
+            document.getElementById('print-area').innerHTML = printAreaTemplate;
+            
+            if (m.customHtml) {
+                // Nếu biên bản này đã được chỉnh sửa bằng tay trước đó, load thẳng DOM đã được chỉnh sửa
+                document.getElementById('print-area').innerHTML = m.customHtml;
+                if (currentUser.role === 'admin') {
+                    document.getElementById('btn-restore-print').style.display = 'inline-block';
+                }
+                
+                document.getElementById('c-conclusion-text').value = m.conclusion || '';
+                document.getElementById('c-deadline-input').value = m.deadline || '';
+                
+                showScreen('detail-screen');
+                return; // Thoát ra ngay để không tự động điền lại dữ liệu làm hỏng cấu trúc tùy chỉnh
+            }
+            
+            document.getElementById('btn-restore-print').style.display = 'none';
+            // ------------------------------------------------
+
             document.getElementById('d-title').innerText = m.title;
             
             let displayTime = m.time || 'Chưa xác định';
@@ -964,7 +997,6 @@
             }
             document.getElementById('d-time').innerText = displayTime;
             
-            // Tìm tên Chủ tọa là Tổ trưởng (Nhưng không được là tài khoản admin ẩn)
             const toTruong = membersData.find(mb => mb.role && mb.role.toLowerCase().includes('tổ trưởng') && mb.username !== 'admin');
             const hostName = toTruong ? toTruong.name : (m.host || '.........................');
             
@@ -982,7 +1014,7 @@
 
             document.getElementById('d-host-name').innerText = hostName;
             const secretary = membersData.find(mb => {
-                if (mb.username === 'admin') return false; // Loại trừ tài khoản admin khỏi phần Thư ký
+                if (mb.username === 'admin') return false; 
                 const r = (mb.role || '').toLowerCase(); const t = (mb.task || '').toLowerCase();
                 return r.includes('thư ký') || r.includes('thư kí') || t.includes('thư ký') || t.includes('thư kí');
             });
@@ -994,7 +1026,8 @@
 
             document.getElementById('print-header-info').style.display = 'block';
             document.getElementById('print-footer-info').style.display = 'block';
-            renderComments(); showScreen('detail-screen');
+            renderComments(); 
+            showScreen('detail-screen');
         }
 
         function updateDeadline() {
@@ -1013,6 +1046,10 @@
             
             db.ref('meetings').set(meetings).then(() => {
                 alert("Đã lưu Kết luận cuộc họp thành công!");
+                // Nếu đang ở chế độ xem bản tự động thì cập nhật lại luôn
+                if(!meetings[mIndex].customHtml) {
+                    document.getElementById('d-conclusion').innerHTML = formatParagraphs(text);
+                }
             });
         }
 
@@ -1114,7 +1151,6 @@
             let scores = [];
 
             membersData.forEach((mb) => {
-                // TÀNG HÌNH TÀI KHOẢN ADMIN: Ẩn tài khoản admin ở mục này
                 if (currentUser.username !== 'admin' && mb.username === 'admin') return;
 
                 let xs = 0, tot = 0, ht = 0, cht = 0;
@@ -1184,6 +1220,52 @@
                     }
                 }
             });
+        }
+
+        // --- CÁC HÀM CHO TÍNH NĂNG CHỈNH SỬA BẢN IN ---
+        function toggleEditPrint() {
+            const printArea = document.getElementById('print-area');
+            const isEditable = printArea.getAttribute('contenteditable') === 'true';
+            
+            if (!isEditable) {
+                // Bật chế độ sửa trực tiếp (Word Mode)
+                printArea.setAttribute('contenteditable', 'true');
+                printArea.style.border = '2px dashed #ffc107';
+                printArea.style.padding = '10px';
+                document.getElementById('btn-edit-print').innerHTML = '💾 Lưu Bản In';
+                document.getElementById('btn-edit-print').className = 'btn-primary';
+                
+                alert('CHẾ ĐỘ SỬA TRỰC TIẾP TRƯỚC KHI IN ĐÃ BẬT.\n- Bạn có thể click trực tiếp vào văn bản bên dưới để sửa chữ, căn chỉnh, xóa hoặc thêm mới (như dùng Word).\n- Sau khi chỉnh sửa hoàn tất, ấn "Lưu Bản In" để chốt lại cấu trúc cuối cùng.');
+            } else {
+                // Tắt và Lưu vào Firebase
+                printArea.setAttribute('contenteditable', 'false');
+                printArea.style.border = 'none';
+                printArea.style.padding = '0';
+                document.getElementById('btn-edit-print').innerHTML = '📝 Sửa Bản In';
+                document.getElementById('btn-edit-print').className = 'btn-warning';
+                
+                const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
+                if (mIndex !== -1) {
+                    meetings[mIndex].customHtml = printArea.innerHTML;
+                    db.ref('meetings').set(meetings).then(() => {
+                        alert('Đã lưu thành công phiên bản đã tinh chỉnh. Biên bản này sẽ xuất file đúng như những gì bạn vừa sửa!');
+                        document.getElementById('btn-restore-print').style.display = 'inline-block';
+                    });
+                }
+            }
+        }
+
+        function restoreOriginalPrint() {
+            if(confirm("LƯU Ý: Khôi phục lại nội dung được tự động tạo từ hệ thống? Tất cả các chỉnh sửa bằng tay của bạn trên văn bản in sẽ bị xóa!")) {
+                const mIndex = meetings.findIndex(x => x.id === currentMeetingId);
+                if (mIndex !== -1) {
+                    meetings[mIndex].customHtml = null;
+                    db.ref('meetings').set(meetings).then(() => {
+                        alert('Đã khôi phục thành công bản gốc!');
+                        viewMeeting(currentMeetingId); // Tải lại giao diện
+                    });
+                }
+            }
         }
     </script>
 </body>
