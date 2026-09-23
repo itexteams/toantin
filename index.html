@@ -50,7 +50,7 @@
         table.assignment-table th { font-weight: bold; text-align: center; }
 
         /* Style cho các ô input nhập liệu động của bảng */
-        .dyn-cell { width: 100%; box-sizing: border-box; border: none; background: transparent; font-family: inherit; font-size: 14px; padding: 8px; }
+        .dyn-cell { width: 100%; box-sizing: border-box; border: none; background: transparent; font-family: inherit; font-size: 14px; padding: 8px; resize: vertical; min-height: 40px; }
         .dyn-cell:focus { outline: 1px solid #0056b3; background: #fff; }
 
         .meeting-item { border-left: 4px solid #0056b3; padding: 10px 15px; background: #f9f9f9; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;}
@@ -99,7 +99,7 @@
             /* Tự động sang trang cho các biên bản nhóm */
             .page-break { page-break-before: always; }
             
-            /* TÍNH NĂNG 1: Ẩn đường kẻ ngang đen của họp nhóm khi in */
+            /* Ẩn đường kẻ ngang đen của họp nhóm khi in */
             .sub-meeting-section { border-top: none !important; margin-top: 20px; padding-top: 0; }
         }
         
@@ -281,15 +281,15 @@
         <label>Nội dung triển khai:</label>
         <textarea id="m-content" rows="6" placeholder="Nhập nội dung... (Có thể ấn Enter xuống dòng)"></textarea>
         
-        <!-- TÍNH NĂNG MỚI 2: TRÌNH TẠO BẢNG ĐỘNG -->
+        <!-- TRÌNH TẠO BẢNG ĐỘNG CÓ CHỈNH KÍCH THƯỚC -->
         <div style="background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 15px; border: 1px solid #ccc;">
             <h4 style="margin-top: 0; margin-bottom: 5px; color: #0056b3;">[Tùy chọn] Trình tạo bảng biểu động</h4>
             <p style="font-size: 13.5px; color: #444; margin-top: 0; margin-bottom: 15px;">
-                <i>Hướng dẫn đặt bảng tùy ý: Đặt con trỏ chuột vào vị trí bất kỳ trong ô nhập Nội dung ở trên, rồi ấn nút "Chèn thẻ [BANG]". Khung văn bản sẽ xuất hiện chữ <b>[BANG]</b>. Lúc in ra, chữ này sẽ được tự động thay thế bằng bảng số liệu bên dưới. Nếu không dùng thẻ [BANG], bảng sẽ tự động chèn xuống cuối cùng. Gõ trực tiếp dữ liệu vào bảng dưới để chỉnh sửa. Dòng 1 tự động in đậm làm tiêu đề.</i>
+                <i>Hướng dẫn: Đặt chuột vào vị trí bất kỳ trong phần Nội dung ở trên rồi ấn nút "Chèn thẻ [BANG]". Khung văn bản sẽ có chữ <b>[BANG]</b>. Khi in, bảng cài đặt ở đây sẽ được tự động thế vào chữ [BANG]. Cột màu xám dùng để tinh chỉnh chiều cao/rộng, sẽ không hiển thị khi in.</i>
             </p>
             
             <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
-                <button class="btn-info" type="button" onclick="insertPlaceholder()" style="font-weight:bold;">Tự động chèn thẻ [BANG]</button>
+                <button class="btn-info" type="button" onclick="insertPlaceholder()" style="font-weight:bold;">Chèn thẻ [BANG]</button>
                 <button class="btn-primary" type="button" onclick="dynAddRow()">+ Thêm dòng</button>
                 <button class="btn-danger" type="button" onclick="dynRemoveRow()">- Xóa dòng</button>
                 <button class="btn-primary" type="button" onclick="dynAddCol()" style="margin-left:15px;">+ Thêm cột</button>
@@ -444,11 +444,13 @@
         let evalPoints = { xs: 10, tot: 8, ht: 5, cht: 0 }; 
         let myChart = null; 
         
-        // --- TÍNH NĂNG 2: STATE DỮ LIỆU BẢNG ĐỘNG ---
+        // --- CẤU TRÚC DỮ LIỆU BẢNG ĐỘNG KÈM KÍCH THƯỚC ---
         let dynamicTableData = [
             ["STT", "Họ và tên", "Công việc"],
             ["1", "", ""]
         ]; 
+        let dynamicColWidths = ["10%", "30%", "60%"];
+        let dynamicRowHeights = ["auto", "auto"];
 
         const defaultMembers = [
             { name: "Super Admin", role: "Quản trị viên", subject: "Quản trị hệ thống", task: "Quản trị viên", username: "admin", password: "admin", tasks: [], yearlyEval: "Chưa đánh giá" },
@@ -493,7 +495,6 @@
             if (document.getElementById('main-app').classList.contains('active') && document.getElementById('tab-stats-content').style.display === 'block') renderStats();
         });
 
-        // --- HÀM TẠO THẺ <P> ĐÃ CHỈNH SỬA ĐỂ KHÔNG PHÁ MÃ [BANG] ---
         function formatParagraphs(text) {
             if (!text) return ''; 
             let paragraphs = text.split(/\n+/).filter(p => p.trim() !== '');
@@ -514,6 +515,8 @@
             // Khởi tạo bảng biểu mẫu mỗi khi mở màn hình Tạo Cuộc Họp Mới
             if (screenId === 'create-meeting-screen') {
                 dynamicTableData = [["STT", "Họ và tên", "Công việc"], ["1", "", ""]];
+                dynamicColWidths = ["10%", "30%", "60%"];
+                dynamicRowHeights = ["auto", "auto"];
                 renderDynamicTable();
             }
         }
@@ -541,40 +544,85 @@
         }
         function logout() { currentUser = { id: '', name: '', role: '', username: '' }; cancelEdit(); cancelEditPlan(); showScreen('login-screen'); }
 
-        // --- TÍNH NĂNG 2: LOGIC TRÌNH TẠO BẢNG ĐỘNG ---
+        // --- HỆ THỐNG RENDER VÀ THAO TÁC BẢNG ĐỘNG ---
         function renderDynamicTable() {
             const tbody = document.getElementById('dynamic-table-body');
             tbody.innerHTML = '';
             if (!dynamicTableData || dynamicTableData.length === 0) return;
             
+            // Dòng cấu hình độ rộng cột
+            const trWidth = document.createElement('tr');
+            dynamicColWidths.forEach((w, cIndex) => {
+                const td = document.createElement('td');
+                td.style.padding = '4px'; td.style.backgroundColor = '#e9ecef';
+                td.innerHTML = `<input type="text" class="dyn-cell" style="text-align: center; font-size: 12px; color: #555; background: #fff; min-height: 25px; padding: 4px;" placeholder="Rộng (%)" value="${w}" oninput="updateColWidth(${cIndex}, this.value)" title="Nhập độ rộng cột (VD: 10%, 50px, auto)">`;
+                trWidth.appendChild(td);
+            });
+            // Ô góc phải chứa nhãn cho cột độ cao
+            const tdEmpty = document.createElement('td');
+            tdEmpty.style.backgroundColor = '#e9ecef'; tdEmpty.style.textAlign = 'center';
+            tdEmpty.innerHTML = `<small style="color:#555; font-weight: bold;">Cao dòng</small>`;
+            trWidth.appendChild(tdEmpty);
+            tbody.appendChild(trWidth);
+
+            // Dòng chứa dữ liệu
             dynamicTableData.forEach((row, rIndex) => {
                 const tr = document.createElement('tr');
                 row.forEach((cell, cIndex) => {
                     const td = document.createElement('td');
                     td.style.padding = '0';
                     const isHeader = rIndex === 0;
-                    td.innerHTML = `<input type="text" class="dyn-cell" style="${isHeader ? 'font-weight: bold; text-align: center;' : ''}" value="${cell}" oninput="updateDynCell(${rIndex}, ${cIndex}, this.value)">`;
+                    td.innerHTML = `<textarea class="dyn-cell" style="${isHeader ? 'font-weight: bold; text-align: center;' : ''}" oninput="updateDynCell(${rIndex}, ${cIndex}, this.value)">${cell}</textarea>`;
                     tr.appendChild(td);
                 });
+                // Cột cấu hình độ cao dòng
+                const tdHeight = document.createElement('td');
+                tdHeight.style.padding = '4px'; tdHeight.style.backgroundColor = '#f4f6f9'; tdHeight.style.width = '80px';
+                tdHeight.innerHTML = `<input type="text" class="dyn-cell" style="text-align: center; font-size: 12px; background: #fff; border: 1px solid #ccc; min-height: 25px; padding: 4px;" placeholder="Cao (px)" value="${dynamicRowHeights[rIndex] || 'auto'}" oninput="updateRowHeight(${rIndex}, this.value)" title="Nhập độ cao (VD: 50px, auto)">`;
+                tr.appendChild(tdHeight);
                 tbody.appendChild(tr);
             });
         }
         function updateDynCell(r, c, val) { dynamicTableData[r][c] = val; }
-        function dynAddRow() { const cols = dynamicTableData[0] ? dynamicTableData[0].length : 3; dynamicTableData.push(new Array(cols).fill("")); renderDynamicTable(); }
-        function dynRemoveRow() { if(dynamicTableData.length > 1) { dynamicTableData.pop(); renderDynamicTable(); } }
-        function dynAddCol() { dynamicTableData.forEach(row => row.push("")); renderDynamicTable(); }
-        function dynRemoveCol() { if(dynamicTableData[0] && dynamicTableData[0].length > 1) { dynamicTableData.forEach(row => row.pop()); renderDynamicTable(); } }
+        function updateColWidth(c, val) { dynamicColWidths[c] = val; }
+        function updateRowHeight(r, val) { dynamicRowHeights[r] = val; }
+
+        function dynAddRow() { 
+            const cols = dynamicTableData[0] ? dynamicTableData[0].length : 3; 
+            dynamicTableData.push(new Array(cols).fill("")); 
+            dynamicRowHeights.push("auto");
+            renderDynamicTable(); 
+        }
+        function dynRemoveRow() { 
+            if(dynamicTableData.length > 1) { 
+                dynamicTableData.pop(); 
+                dynamicRowHeights.pop();
+                renderDynamicTable(); 
+            } 
+        }
+        function dynAddCol() { 
+            dynamicTableData.forEach(row => row.push("")); 
+            dynamicColWidths.push("auto");
+            renderDynamicTable(); 
+        }
+        function dynRemoveCol() { 
+            if(dynamicTableData[0] && dynamicTableData[0].length > 1) { 
+                dynamicTableData.forEach(row => row.pop()); 
+                dynamicColWidths.pop();
+                renderDynamicTable(); 
+            } 
+        }
         
         function insertPlaceholder() {
             const contentArea = document.getElementById('m-content');
             const cursorPosition = contentArea.selectionStart;
             const textBefore = contentArea.value.substring(0, cursorPosition);
             const textAfter = contentArea.value.substring(cursorPosition);
-            contentArea.value = textBefore + (textBefore.endsWith('\n') ? '' : '\n') + "[BANG]\n" + textAfter;
+            contentArea.value = textBefore + (textBefore.endsWith('\n') || textBefore === '' ? '' : '\n') + "[BANG]\n" + textAfter;
             contentArea.focus();
         }
 
-        // --- LƯU CUỘC HỌP KÈM BẢNG ĐỘNG ---
+        // --- LƯU CUỘC HỌP ---
         function saveMeeting() {
             const title = document.getElementById('m-title').value.trim(); const time = document.getElementById('m-time').value;
             const deadline = document.getElementById('m-deadline').value; const content = document.getElementById('m-content').value.trim();
@@ -583,7 +631,8 @@
             const newM = { 
                 id: Date.now(), title: title, time: time.replace('T', ' '), deadline: deadline,
                 content: content, conclusion: "", host: currentUser.name, comments: [],
-                dynamicTable: dynamicTableData // Lưu mảng bảng động 2 chiều
+                dynamicTable: dynamicTableData,
+                tableConfig: { colWidths: dynamicColWidths, rowHeights: dynamicRowHeights }
             };
             meetings.push(newM);
             db.ref('meetings').set(meetings).then(() => {
@@ -614,15 +663,30 @@
             });
         }
 
-        // Tạo thẻ HTML Bảng Động để Render lên Giao diện In
-        function generateDynamicTableHtml(tableData) {
+        // --- RENDER BẢNG RA BẢN IN THEO CẤU HÌNH KÍCH THƯỚC ---
+        function generateDynamicTableHtml(tableData, tableConfig) {
             if(!tableData || tableData.length === 0 || tableData[0].length === 0) return '';
+            const colW = (tableConfig && tableConfig.colWidths) ? tableConfig.colWidths : [];
+            const rowH = (tableConfig && tableConfig.rowHeights) ? tableConfig.rowHeights : [];
+
             let html = '<table class="assignment-table"><thead><tr>';
-            tableData[0].forEach(col => { html += `<th>${col}</th>`; }); // Dòng đầu làm th
+            // Render Header (Thêm cấu hình độ rộng)
+            tableData[0].forEach((col, cIndex) => { 
+                let w = colW[cIndex] && colW[cIndex] !== 'auto' ? colW[cIndex] : '';
+                let h = rowH[0] && rowH[0] !== 'auto' ? rowH[0] : '';
+                let style = '';
+                if (w) style += `width: ${w}; `;
+                if (h) style += `height: ${h}; `;
+                html += `<th style="${style}">${col.replace(/\n/g, '<br>')}</th>`; 
+            }); 
             html += '</tr></thead><tbody>';
+            // Render Data (Thêm cấu hình độ cao)
             for(let i = 1; i < tableData.length; i++) {
-                html += '<tr>';
-                tableData[i].forEach((col, cIndex) => { html += `<td style="${cIndex===0?'text-align:center;':''}">${col}</td>`; });
+                let h = rowH[i] && rowH[i] !== 'auto' ? rowH[i] : '';
+                html += `<tr style="${h ? `height: ${h};` : ''}">`;
+                tableData[i].forEach((col, cIndex) => { 
+                    html += `<td style="${cIndex===0?'text-align:center;':''}">${col.replace(/\n/g, '<br>')}</td>`; 
+                });
                 html += '</tr>';
             }
             html += '</tbody></table>';
@@ -663,14 +727,14 @@
             // XỬ LÝ CHÈN BẢNG VÀO ĐÚNG VỊ TRÍ [BANG]
             let contentHtml = formatParagraphs(m.content);
             if (m.dynamicTable && m.dynamicTable.length > 0) {
-                const tableHtml = generateDynamicTableHtml(m.dynamicTable);
+                const tableHtml = generateDynamicTableHtml(m.dynamicTable, m.tableConfig);
                 if (contentHtml.includes('[BANG]')) {
                     contentHtml = contentHtml.replace('[BANG]', tableHtml);
                 } else {
-                    contentHtml += tableHtml; // Nếu không dùng thẻ [BANG], tự đẩy xuống cuối
+                    contentHtml += tableHtml;
                 }
             } else {
-                contentHtml = contentHtml.replace('[BANG]', ''); // Dọn dẹp nếu người dùng gõ thẻ nhưng không tạo bảng
+                contentHtml = contentHtml.replace('[BANG]', ''); 
             }
             document.getElementById('d-content').innerHTML = contentHtml;
             
