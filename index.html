@@ -680,8 +680,13 @@
             let contentHtml = formatParagraphs(m.content);
             if (m.dynamicTable && m.dynamicTable.length > 0) {
                 const tableHtml = generateDynamicTableHtml(m.dynamicTable, m.tableConfig);
-                if (contentHtml.includes('[BANG]')) { contentHtml = contentHtml.replace('[BANG]', tableHtml); } else { contentHtml += tableHtml; }
-            } else { contentHtml = contentHtml.replace('[BANG]', ''); }
+                // CHỈ chèn bảng nếu trong nội dung có chứa thẻ [BANG], không tự động += thêm nữa
+                if (contentHtml.includes('[BANG]')) { 
+                    contentHtml = contentHtml.replace('[BANG]', tableHtml); 
+                }
+            } else { 
+                contentHtml = contentHtml.replace('[BANG]', ''); 
+            }
             document.getElementById('d-content').innerHTML = contentHtml;
             
             document.getElementById('d-host-name').innerText = hostName; const sec = membersData.find(mb => mb.username !== 'admin' && ((mb.role||'').toLowerCase().includes('thư k') || (mb.task||'').toLowerCase().includes('thư k'))); document.getElementById('d-secretary-name').innerText = sec ? sec.name : '.........................'; document.getElementById('d-conclusion').innerHTML = formatParagraphs(m.conclusion || '......................................................................................................'); document.getElementById('d-comments').innerHTML = generateCommentsHtml(m.comments);
