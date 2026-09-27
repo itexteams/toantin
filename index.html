@@ -35,6 +35,10 @@
         .btn-info { background-color: #17a2b8; color: white; }
         .btn-disabled { background-color: #6c757d !important; cursor: not-allowed !important; }
         
+        /* Nút định dạng văn bản (In đậm, In nghiêng...) */
+        .btn-format { background-color: #e2e6ea; color: #333; padding: 4px 10px; font-size: 13px; font-weight: bold; border-radius: 3px; border: 1px solid #ccc; }
+        .btn-format:hover { background-color: #d6d8db; }
+        
         /* Form nhập liệu */
         input, textarea, select { width: 100%; padding: 10px; margin: 8px 0 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
         
@@ -278,8 +282,14 @@
         <input type="datetime-local" id="m-time">
         <label>Hạn chót nhận xét:</label>
         <input type="datetime-local" id="m-deadline">
-        <label>Nội dung triển khai:</label>
-        <textarea id="m-content" rows="6" placeholder="Nhập nội dung... (Có thể ấn Enter xuống dòng)"></textarea>
+        
+        <label style="display: block; margin-top: 10px; margin-bottom: 5px;">Nội dung triển khai:</label>
+        <div style="margin-bottom: 5px; display: flex; gap: 5px;">
+            <button class="btn-format" type="button" onclick="insertTag('m-content', 'b')"><b>B</b> In đậm</button>
+            <button class="btn-format" type="button" onclick="insertTag('m-content', 'i')"><i>I</i> In nghiêng</button>
+            <button class="btn-format" type="button" onclick="insertTag('m-content', 'u')"><u>U</u> Gạch chân</button>
+        </div>
+        <textarea id="m-content" rows="6" placeholder="Nhập nội dung... (Gõ 1. 2. I. hệ thống sẽ tự động bôi đậm chỉ mục)"></textarea>
         
         <!-- TRÌNH TẠO BẢNG ĐỘNG -->
         <div style="background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 15px; border: 1px solid #ccc;">
@@ -383,11 +393,23 @@
                     <select id="c-edit-target" style="margin: 0; padding: 8px; flex: 1;" onchange="loadTargetEditData()">
                     </select>
                 </div>
-                <label style="font-size: 14px; font-weight:bold;">Nội dung triển khai:</label>
+                
+                <label style="font-size: 14px; font-weight:bold; display: block; margin-bottom: 5px;">Nội dung triển khai:</label>
+                <div style="margin-bottom: 5px; display: flex; gap: 5px;">
+                    <button class="btn-format" type="button" onclick="insertTag('c-edit-content', 'b')"><b>B</b></button>
+                    <button class="btn-format" type="button" onclick="insertTag('c-edit-content', 'i')"><i>I</i></button>
+                    <button class="btn-format" type="button" onclick="insertTag('c-edit-content', 'u')"><u>U</u></button>
+                </div>
                 <textarea id="c-edit-content" rows="4" placeholder="Nhập nội dung triển khai..." style="font-family: inherit; margin-bottom: 10px;"></textarea>
 
-                <label style="font-size: 14px; font-weight:bold; display: block;">Kết luận:</label>
+                <label style="font-size: 14px; font-weight:bold; display: block; margin-bottom: 5px;">Kết luận:</label>
+                <div style="margin-bottom: 5px; display: flex; gap: 5px;">
+                    <button class="btn-format" type="button" onclick="insertTag('c-conclusion-text', 'b')"><b>B</b></button>
+                    <button class="btn-format" type="button" onclick="insertTag('c-conclusion-text', 'i')"><i>I</i></button>
+                    <button class="btn-format" type="button" onclick="insertTag('c-conclusion-text', 'u')"><u>U</u></button>
+                </div>
                 <textarea id="c-conclusion-text" rows="4" placeholder="Nhập nội dung kết luận..." style="font-family: inherit;"></textarea>
+                
                 <button class="btn-warning" onclick="saveEditData()" style="margin-top: 10px;">Lưu Nội dung & Kết luận</button>
             </div>
 
@@ -416,7 +438,14 @@
                     <div style="flex: 2; min-width: 200px;"><input type="text" id="sub-title" placeholder="Tên nhóm (VD: Nhóm Toán, Nhóm Tin...)"></div>
                     <div style="flex: 1; min-width: 150px;"><select id="sub-host" style="margin: 8px 0 15px;"><option value="">-- Chọn Nhóm trưởng --</option></select></div>
                 </div>
+                
+                <div style="margin-bottom: 5px; margin-top: 5px; display: flex; gap: 5px;">
+                    <button class="btn-format" type="button" onclick="insertTag('sub-content', 'b')"><b>B</b></button>
+                    <button class="btn-format" type="button" onclick="insertTag('sub-content', 'i')"><i>I</i></button>
+                    <button class="btn-format" type="button" onclick="insertTag('sub-content', 'u')"><u>U</u></button>
+                </div>
                 <textarea id="sub-content" rows="3" placeholder="Nội dung triển khai của nhóm..."></textarea>
+                
                 <button class="btn-success" onclick="createSubMeeting()">Tạo cuộc họp nhóm</button>
 
                 <hr style="border-top: 1px dashed #ccc; margin-top: 20px;">
@@ -483,8 +512,28 @@
         function formatParagraphs(text) {
             if (!text) return ''; 
             let paragraphs = text.split(/\n+/).filter(p => p.trim() !== '');
-            return paragraphs.map(p => { if(p.trim() === '[BANG]') return p; return `<p>${p}</p>`; }).join('');
+            return paragraphs.map(p => { 
+                if(p.trim() === '[BANG]') return p; 
+                // Tự động in đậm các mục lục như 1., 2., I., a), b)
+                let formatted = p.replace(/^((?:[IVX]+|\d+(?:\.\d+)*|[a-z])(?:\.|\)))\s+/i, '<b>$1 </b> ');
+                return `<p>${formatted}</p>`; 
+            }).join('');
         }
+        
+        // HÀM CHÈN THẺ ĐỊNH DẠNG HTML (B, I, U)
+        function insertTag(elementId, tag) {
+            const el = document.getElementById(elementId);
+            const start = el.selectionStart;
+            const end = el.selectionEnd;
+            const text = el.value;
+            const selected = text.substring(start, end);
+            el.value = text.substring(0, start) + `<${tag}>` + selected + `</${tag}>` + text.substring(end, text.length);
+            el.focus();
+            // Đặt con trỏ vào trong thẻ nếu chưa chọn text
+            el.selectionStart = start + tag.length + 2;
+            el.selectionEnd = el.selectionStart + selected.length;
+        }
+
         function getBadgeClass(status) { if (status === 'Chưa hoàn thành') return 'bg-danger'; if (status === 'Hoàn thành') return 'bg-primary'; if (status === 'Hoàn thành tốt') return 'bg-success'; if (status === 'Hoàn thành xuất sắc') return 'bg-warning'; return 'bg-secondary'; }
         
         function showScreen(screenId) {
